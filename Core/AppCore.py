@@ -251,8 +251,9 @@ class FileManager():
             if temp_file_path and os.path.exists(temp_file_path):
                 try:
                     os.unlink(temp_file_path)
-                except (OSError, Exception) as e:
-                    return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
+                except (OSError, Exception) as err:
+                    return Result(False, f"{type(err).__name__} :{str(err)}", self.exception_tracker.get_exception_location(err).data, self.exception_tracker.get_exception_info(err).data)
+            return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
                 
     def Atomic_write(self, data, file_path):
         """
