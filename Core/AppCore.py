@@ -110,9 +110,9 @@ class AppCore:
             # 캐시 확인
             if lang not in self._lang_cache:
                 cache = self.FileManager.load_json(f"./language/{lang}.json")
-                if not cache.success:
-                    raise FileNotFoundError(f"Language file for '{lang}' could not be loaded.")
-                self._lang_cache[lang] = cache.data
+            if not cache.success:
+                raise FileNotFoundError(f"Language file for '{lang}' could not be loaded.")
+            self._lang_cache[lang] = cache.data
 
             # 텍스트 반환
             if key in self._lang_cache[lang]:
