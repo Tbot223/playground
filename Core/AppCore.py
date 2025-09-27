@@ -49,7 +49,7 @@ class AppCore:
 
         Args:
             comparison_type (str): 비교 유형 ("above", "below", "equal")
-            threshold (int or float): 기준 값 (equal의 경우 Any)
+            threshold (Any, But list, dict, tuple is not allowed): 기준 값 (equal의 경우 Any)
             json_data (dict): 딕셔너리 데이터
 
         Returns:
@@ -63,23 +63,25 @@ class AppCore:
             matching_keys = []
             comparison_type = comparison_type.lower()
 
-            if comparison_type == "above": # 초과
-                for key, value in json_data.items(): # dict 순회
-                    if value > threshold: # > 비교
-                        matching_keys.append(key)
-                return True, None, None, matching_keys
-            elif comparison_type == "below": # 미만
-                for key, value in json_data.items():
-                    if value < threshold:
-                        matching_keys.append(key)
-                return True, None, None, matching_keys
-            elif comparison_type == "equal": # 동일
-                for key, value in json_data.items():
-                    if value == threshold:
-                        matching_keys.append(key)
-                return Result(True, None, None, matching_keys)
-            else:
-                raise ValueError("Invalid comparison_type. Use 'above', 'below', or 'equal'.")
+            if not isinstance(json_data, dict): # json_data 유형 확인
+                raise ValueError("json_data must be a dictionary.")
+            if isinstance(threshold, (dict, list, tuple)) and comparison_type != "equal": # threshold 유형 확인
+                raise ValueError("Threshold must be a single value for 'above' or 'below' comparisons.")
+            if comparison_type not in ["above", "below", "equal"]: # 비교 유형 확인
+                raise ValueError("comparison_type must be 'above', 'below', or 'equal'.")
+
+            compare_ops = {
+                "above": lambda v: v > threshold, # '>' 연산자
+                "below": lambda v: v < threshold, # '<' 연산자
+                "equal": lambda v: v == threshold # '==' 연산자
+            }
+
+            for key, value in json_data.items(): # 딕셔너리 순회
+                if compare_ops[comparison_type](value): # 비교 수행
+                    matching_keys.append(key)
+
+            return Result(True, None, None, matching_keys)
+            
         except Exception as e:
             return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
 
