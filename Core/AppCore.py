@@ -49,15 +49,15 @@ class AppCore:
 
         Args:
             comparison_type (str): 비교 유형 ("above", "below", "equal")
-            threshold (Any, But list, dict, tuple is not allowed): 기준 값 (equal의 경우 Any)
+            threshold (Any, But list, dict, tuple is not allowed): 기준 값
             json_data (dict): 딕셔너리 데이터
 
         Returns:
-            tuple: (bool, str or None, str or None, list or dict)
+            Result: 결과 객체
                 - 성공 여부 (bool)
-                - error 메시지 (str or None)
-                - 컨텍스트 태그 (str or None)
-                - 최종/에러 데이터 (list or dict)
+                - error 메시지 (str | None)
+                - 컨텍스트 태그 (str | None)
+                - 최종/에러 데이터 (list | dict)
         """
         try:
             matching_keys = []
@@ -65,7 +65,7 @@ class AppCore:
 
             if not isinstance(json_data, dict): # json_data 유형 확인
                 raise ValueError("json_data must be a dictionary.")
-            if isinstance(threshold, (dict, list, tuple)) and comparison_type != "equal": # threshold 유형 확인
+            if isinstance(threshold, (dict, list, tuple)): # threshold 유형 확인
                 raise ValueError("Threshold must be a single value for 'above' or 'below' comparisons.")
             if comparison_type not in ["above", "below", "equal"]: # 비교 유형 확인
                 raise ValueError("comparison_type must be 'above', 'below', or 'equal'.")
@@ -77,6 +77,12 @@ class AppCore:
             }
 
             for key, value in json_data.items(): # 딕셔너리 순회
+                if isinstance(threshold, str) and not isinstance(value, str):
+                    continue
+                if not isinstance(threshold, str) and isinstance(value, str):
+                    continue
+                if isinstance(value, (dict, list, tuple)): # 값이 dict, list, tuple인 경우
+                    continue
                 if compare_ops[comparison_type](value): # 비교 수행
                     matching_keys.append(key)
 
@@ -97,11 +103,11 @@ class AppCore:
             lang (str): 언어 설정
             key (str): 텍스트 키
         Returns:
-            tuple: (bool, str or None, str or None, str or dict)
+            Result: 결과 객체
                 - 성공 여부 (bool)
-                - error 메시지 (str or None)
-                - 컨텍스트 태그 (str or None)
-                - 최종/에러 데이터 (str or dict)
+                - error 메시지 (str | None)
+                - 컨텍스트 태그 (str | None)
+                - 최종/에러 데이터 (str | dict)
         """
         try:
             if lang not in self.lang: # 언어 확인
@@ -164,10 +170,10 @@ class FileManager():
             file_path (str): 불러올 파일 경로
 
         Returns:
-            tuple: (bool, str or None, str or None, dict)
+            Result: 결과 객체
                 - 성공 여부 (bool)
-                - error 메시지 (str or None)
-                - 컨텍스트 태그 (str or None)
+                - error 메시지 (str | None)
+                - 컨텍스트 태그 (str | None)
                 - 최종/에러 데이터 (dict)
         """
         try:
@@ -185,11 +191,11 @@ class FileManager():
             file_path (str): 불러올 파일 경로
 
         Returns:
-            tuple: (bool, str or None, str or None, str or dict)
+            Result: 결과 객체
                 - 성공 여부 (bool)
-                - error 메시지 (str or None)
-                - 컨텍스트 태그 (str or None)
-                - 최종/에러 데이터 (str or dict)
+                - error 메시지 (str | None)
+                - 컨텍스트 태그 (str | None)
+                - 최종/에러 데이터 (str | dict)
         """
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
@@ -210,11 +216,11 @@ class FileManager():
             serialization (bool): 직렬화 여부 
         
         Returns:
-            tuple: (bool, str or None, str or None, None or dict)
+            Result: 결과 객체
                 - 성공 여부 (bool)
-                - error 메시지 (str or None)
-                - 컨텍스트 태그 (str or None)
-                - 최종/에러 데이터 (None or dict)
+                - error 메시지 (str | None)
+                - 컨텍스트 태그 (str | None)
+                - 최종/에러 데이터 (None | dict)
         """
         try:
             # 디렉토리가 존재하지 않으면 생성
@@ -265,11 +271,11 @@ class FileManager():
             ex) Atomic_write("Hello, World!", "./data/example.txt")
 
         Returns:
-            tuple: (bool, str or None, str or None, None or dict)
+            Result: 결과 객체
                 - 성공 여부 (bool)
-                - error 메시지 (str or None)
-                - 컨텍스트 태그 (str or None)
-                - 최종/에러 데이터 (None or dict)
+                - error 메시지 (str | None)
+                - 컨텍스트 태그 (str | None)
+                - 최종/에러 데이터 (None | dict)
         """
         try:
             # 디렉토리가 존재하지 않으면 생성
@@ -324,10 +330,10 @@ class ExceptionTracker():
             error (Exception): 예외 객체 (필수)
 
         Returns:
-            tuple: (bool, str or None, str or None, str or None)
+            Result: 결과 객체
                 - 성공 여부 (bool) : True if successful, False otherwise
-                - error 메시지 (str or None) : None if successful
-                - 컨텍스트 태그 (str or None)  : None if successful
+                - error 메시지 (str | None) : None if successful
+                - 컨텍스트 태그 (str | None)  : None if successful
                 - 위치 정보 (str) : if failed, traceback string otherwise
         """
         try:
@@ -350,11 +356,11 @@ class ExceptionTracker():
             params (dict): 추가 매개변수 (선택적)
 
         Returns:
-            tuple: (bool, str or None, str or None, dict or str)
+            Result: 결과 객체
                 - 성공 여부 (bool) : True if successful, False otherwise
-                - error 메시지 (str or None) : None if successful
-                - 컨텍스트 태그 (str or None)  : None if successful
-                - Error 데이터 (dict or str) : dict if successful, traceback string otherwise
+                - error 메시지 (str | None) : None if successful
+                - 컨텍스트 태그 (str | None)  : None if successful
+                - Error 데이터 (dict | str) : dict if successful, traceback string otherwise
                 - dict 구조:
                     {
                         "success": bool,

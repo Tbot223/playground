@@ -73,10 +73,10 @@ class StorageManager:
             save_id (str): 불러올 저장 ID (선택적, 기본값 "latest")
 
         Returns:
-            tuple: (bool, str or None, str or None, dict)
+            Result: 결과 객체
                 - 성공 여부 (bool)
-                - error 메시지 (str or None)
-                - 컨텍스트 태그 (str or None)
+                - error 메시지 (str | None)
+                - 컨텍스트 태그 (str | None)
                 - 최종/에러 데이터 (dict)
         """
         try:
@@ -100,11 +100,11 @@ class StorageManager:
             save_id (str): 저장 ID (필수, 미리 생성한 세이브 파일에만 사용할 것, 세이브 생성은 save_all 사용)
 
         Returns:
-            tuple: (bool, str or None, str or None, None or dict)
-                - 성공 여부 (bool), 
-                - error 메시지 (str or None)
-                - 컨텍스트 태그 (str or None)
-                - 최종/에러 데이터 (None or dict)
+            Result: 결과 객체
+                - 성공 여부 (bool)
+                - error 메시지 (str | None)
+                - 컨텍스트 태그 (str | None)
+                - 최종/에러 데이터 (None | dict)
         """
         try:
             if save_id is None:
@@ -116,7 +116,7 @@ class StorageManager:
         except Exception as e:
             return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
 
-    def save_all(self, data: List[Dict]=None, save_id: str=None) -> Result:
+    def save_all(self, data: List[Dict]=None, metadata: dict=None, save_id: str=None) -> Result:
         """
         user_data, world_data 등 입력된 데이터를 모두 저장합니다.
 
@@ -126,13 +126,14 @@ class StorageManager:
                 - 각 항목은 dict 형식이어야 합니다.
                 - 예: [{"user_data": user_data}, {"stocks_data": stocks_data}]
                 - 다른 형식 사용은 절대 금지!
+            metadata (dict): 메타데이터 (선택적)
 
         Returns: 
-            tuple: (bool, str or None, str or None, None or dict)
+            Result: 결과 객체
                 - 성공 여부 (bool)
-                - error 메시지 (str or None)
-                - 컨텍스트 태그 (str or None)
-                - 최종/에러 데이터 (None or dict)
+                - error 메시지 (str | None)
+                - 컨텍스트 태그 (str | None)
+                - 최종/에러 데이터 (None | dict)
         """
         try:
             if data is None:
@@ -175,34 +176,31 @@ class StorageManager:
         except Exception as e:
             return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
 
-    def save_metadata(self, save_id: str, user_name: str, play_time: int):
+    def save_metadata(self, save_id: str, other_info: dict=None) -> Result:
         """
         저장 시간, 유저 이름, 플레이 시간 등 메타데이터 저장
 
         Args:
             save_id (str): 저장 ID (필수)
-            user_name (str): 유저 이름 (필수)
-            play_time (int): 플레이 시간 (초 단위, 필수)
+            other_info (dict): 기타 정보 (선택적)
 
         Returns:
-            tuple: (bool, str or None, str or None, None or dict)
+            Result: 결과 객체
                 - 성공 여부 (bool)
-                - error 메시지 (str or None)
-                - 컨텍스트 태그 (str or None)
-                - 최종/에러 데이터 (None or dict)
+                - error 메시지 (str | None)
+                - 컨텍스트 태그 (str | None)
+                - 최종/에러 데이터 (None | dict)
         """
         try:
             if save_id is None:
                 raise ValueError("save_id cannot be None.")
-            if user_name is None:
-                raise ValueError("user_name cannot be None.")
-            if play_time is None or not isinstance(play_time, int) or play_time < 0:
-                raise ValueError("play_time must be a non-negative integer representing seconds.")
+
             metadata = {
                 "timestamp": time.strftime("%Y-%m-%d,%H:%M:%S", time.localtime()),
-                "user_name": user_name,
-                "play_time": play_time
-            }
+                }
+            if other_info is not None:
+                metadata.update(other_info)
+
             file_path = f"saves/{save_id}/metadata.json"
             self.FileManager.save_json(metadata, file_path)
             return Result(True, None, None, None)
@@ -217,10 +215,10 @@ class StorageManager:
             save_id (str): 불러올 저장 ID (필수)
 
         Returns:
-            tuple: (bool, str or None, str or None, dict)
+            Result: 결과 객체
                 - 성공 여부 (bool)
-                - error 메시지 (str or None)
-                - 컨텍스트 태그 (str or None)
+                - error 메시지 (str | None)
+                - 컨텍스트 태그 (str | None)
                 - 최종/에러 데이터 (dict)
         """
         try:
@@ -243,11 +241,11 @@ class StorageManager:
         saves/ 폴더 내의 모든 저장 ID를 반환
 
         Returns:
-            tuple: (bool, str or None, str or None, list or dict)
+            Result: 결과 객체
                 - 성공 여부 (bool)
-                - error 메시지 (str or None)
-                - 컨텍스트 태그 (str or None)
-                - 최종/에러 데이터 (list or dict)
+                - error 메시지 (str | None)
+                - 컨텍스트 태그 (str | None)
+                - 최종/에러 데이터 (list | dict)
         """
         try:
             saves = os.listdir(self.base_dir)
@@ -263,11 +261,11 @@ class StorageManager:
             save_id (str): 삭제할 저장 ID (필수)
 
         Returns:
-            tuple: (bool, str or None, str or None, dict)
+            Result: 결과 객체
                 - 성공 여부 (bool)
-                - error 메시지 (str or None)
-                - 컨텍스트 태그 (str or None)
-                - 최종/에러 데이터 (None or dict)
+                - error 메시지 (str | None)
+                - 컨텍스트 태그 (str | None)
+                - 최종/에러 데이터 (None | dict)
         """
         try:
             save_path = os.path.join(self.base_dir, save_id) # saves/save_id
@@ -310,10 +308,10 @@ class StorageManager:
             save_id (str): 확인할 저장 ID (필수)
             required_files (list, optional): 필수 파일 목록 (필수)
         Returns:
-            tuple: (bool, str or None, str or None, dict)
+            Result: 결과 객체
                 - 성공 여부 (bool)
-                - error 메시지 (str or None)
-                - 컨텍스트 태그 (str or None)
+                - error 메시지 (str | None)
+                - 컨텍스트 태그 (str | None)
                 - 존재 여부/에러 데이터 (dict)
         """
         try:
@@ -340,11 +338,11 @@ class StorageManager:
         가장 최근에 생성된 저장 ID 반환
 
         Returns:
-            tuple: (bool, str or None, str or None, str or dict)
-            - 성공 여부 (bool)
-            - error 메시지 (str or None)
-            - 컨텍스트 태그 (str or None)
-            - 최종/에러 데이터 (str or dict)
+            Result: 결과 객체
+                - 성공 여부 (bool)
+                - error 메시지 (str | None)
+                - 컨텍스트 태그 (str | None)
+                - 최종/에러 데이터 (str | dict)
         """
         try:
             saves = self.list_saves()
@@ -371,7 +369,6 @@ class StorageManager:
 # 테스트 코드
 
 """
-
 user_data = {"name": "Alice", "level": 5, "experience": 1500}
 stocks_data = {"AAPL": 10, "GOOGL": 5, "TSLA": 2}
 data = [    
@@ -380,17 +377,16 @@ data = [
        ]    
 a = StorageManager().save_all(data)
 print(a)
-""" 
+"""
 
-# b = StorageManager().save_data({"name": "Alice", "level": 5, "experience": 150}, "user_data", "save_1")
-# print(b)
+
+# StorageManager().save_data({"name": "Alice", "level": 5, "experience": 150}, "user_data", "save_1")
     
 # print(StorageManager().validate_save("save_1", ["user_data.json", "stocks_data.json", "metadata.json"]))
 
 # print(StorageManager().get_latest_save_id())
 
-# b = StorageManager().delete_save("save_1")
-# print(b)
+# StorageManager().delete_save("save_1")
 
 # print(StorageManager().list_saves())
 
