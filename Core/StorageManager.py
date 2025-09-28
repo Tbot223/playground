@@ -175,12 +175,14 @@ class StorageManager:
         except Exception as e:
             return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
 
-    def save_metadata(self, save_id):
+    def save_metadata(self, save_id: str, user_name: str, play_time: int):
         """
         저장 시간, 유저 이름, 플레이 시간 등 메타데이터 저장
 
         Args:
             save_id (str): 저장 ID (필수)
+            user_name (str): 유저 이름 (필수)
+            play_time (int): 플레이 시간 (초 단위, 필수)
 
         Returns:
             tuple: (bool, str or None, str or None, None or dict)
@@ -190,10 +192,16 @@ class StorageManager:
                 - 최종/에러 데이터 (None or dict)
         """
         try:
+            if save_id is None:
+                raise ValueError("save_id cannot be None.")
+            if user_name is None:
+                raise ValueError("user_name cannot be None.")
+            if play_time is None or not isinstance(play_time, int) or play_time < 0:
+                raise ValueError("play_time must be a non-negative integer representing seconds.")
             metadata = {
                 "timestamp": time.strftime("%Y-%m-%d,%H:%M:%S", time.localtime()),
-                "user_name": "example_user",  # self.menu.get_user_name()
-                "play_time": 3600  # self.menu.get_play_time()
+                "user_name": user_name,
+                "play_time": play_time
             }
             file_path = f"saves/{save_id}/metadata.json"
             self.FileManager.save_json(metadata, file_path)
