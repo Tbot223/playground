@@ -3,10 +3,12 @@ import os
 import json
 import time
 import shutil
+from typing import Union, Optional, Tuple, List, Dict
+import stat
 
 # internal modules
 import AppCore
-import Result
+from Result import Result
 
 class StorageManager:
     """
@@ -56,7 +58,7 @@ class StorageManager:
     """
     def __init__(self):
         self.core = AppCore.AppCore()
-        self.FileManager = AppCore.FileManager
+        self.FileManager = AppCore.FileManager()
         self.exception_tracker = AppCore.ExceptionTracker()
         self.base_dir = "saves"
         self.backup_dir = "backup"
@@ -78,6 +80,11 @@ class StorageManager:
                 - 최종/에러 데이터 (dict)
         """
         try:
+            if save_id == "latest":
+                latest_save = self.get_latest_save_id()
+                if latest_save.success is False:
+                    raise ValueError("Failed to get latest save ID.")
+                save_id = latest_save.data
             file_path = f"saves/{save_id}/{save_type}.json"
             return Result(True, None, None, self.core.FileManager.load_json(file_path))
         except Exception as e:
@@ -109,12 +116,16 @@ class StorageManager:
         except Exception as e:
             return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
 
-    def save_all(self, save_id=None):
+    def save_all(self, data: List[Dict]=None, save_id=None):
         """
-        user, stocks 데이터를 모두 저장합니다.
+        user_data, world_data 등 입력된 데이터를 모두 저장합니다.
 
         Args:
             save_id (str): 저장 ID (선택적, 기본값 None - 새로운 ID 생성)
+            data (list): 저장할 데이터 목록 (필수)
+                - 각 항목은 dict 형식이어야 합니다.
+                - 예: [{"user_data": user_data}, {"stocks_data": stocks_data}]
+                - 다른 형식 사용은 절대 금지!
 
         Returns: 
             tuple: (bool, str or None, str or None, None or dict)
@@ -124,29 +135,41 @@ class StorageManager:
                 - 최종/에러 데이터 (None or dict)
         """
         try:
-            user_data = {"example_key": "example_value"} #ss self.menu.get_user_data()
-            stocks_data = {"example_stock": 100} # self.menu.get_stocks_data()
+            if data is None:
+                raise ValueError("Data must be provided as a list of dictionaries.")
+            for item in data:
+                if not isinstance(item, dict):
+                    raise ValueError("All items in data must be of type dict.")
+                if not isinstance(next(iter(item.values())), dict):
+                    raise ValueError("All items in data must be of type dict.")
+                if len(item) != 1:
+                    raise ValueError("Each dictionary in data must contain exactly one key-value pair.")
+            
+            def save_item(item, save_id=None): # 내부 함수로 데이터 저장
+                if save_id is not None:
+                    for key, value in item.items():
+                        file_path = f"saves/{save_id}/{key}.json"
+                        self.FileManager.save_json(value, file_path)
+                else: # save_id가 None이면 새로운 저장 생성 불가
+                    raise ValueError("save_id cannot be None when saving individual items.(inner function, save_item)")
 
-            if save_id is not None:
-                file_path_user = f"saves/{save_id}/user.json"
-                file_path_stocks = f"saves/{save_id}/stocks.json"
+            if save_id is not None: # 저장 ID 주어진 경우
+                if not os.path.exists(os.path.join(self.base_dir, save_id)):
+                    os.makedirs(os.path.join(self.base_dir, save_id), exist_ok=True)
                 self.save_metadata(save_id)
-                self.FileManager.save_json(user_data, file_path_user)
-                self.FileManager.save_json(stocks_data, file_path_stocks)
+                for item in data: # 주어진 ID에 데이터 덮어쓰기
+                    save_item(item, save_id)
                 return Result(True, None, None, None)
-            else:
+            else: # 저장 ID 주어지지 않은 경우, 새로운 ID 생성
                 i = 1
-                while True:
-                    candidate = f"save_{i}"
-                    candidate_path = os.path.join(self.base_dir, candidate)
-                    if not os.path.exists(candidate_path):
+                while True: # save_1, save_2, ... 순으로 폴더 생성
+                    candidate = f"save_{i}" 
+                    candidate_path = os.path.join(self.base_dir, candidate) # saves/save_i
+                    if not os.path.exists(candidate_path): # 해당 폴더가 없으면 생성
                         os.makedirs(candidate_path, exist_ok=True)
-                        user_path = f"saves/{candidate}/user.json"
-                        stocks_path = f"saves/{candidate}/stocks.json"
                         self.save_metadata(candidate)
-                        self.FileManager.save_json(user_data, user_path)
-                        self.FileManager.save_json(stocks_data, stocks_path)
-                        #still developing
+                        for item in data:
+                            save_item(item, candidate)
                         return Result(True, None, None, None)
                     i += 1
         except Exception as e:
@@ -193,8 +216,17 @@ class StorageManager:
                 - 최종/에러 데이터 (dict)
         """
         try:
+            if save_id is None:
+                raise ValueError("save_id cannot be None.")
+            if not os.path.exists(os.path.join(self.base_dir, save_id)):
+                raise FileNotFoundError(f"Save ID '{save_id}' does not exist.")
             file_path = f"saves/{save_id}/metadata.json"
-            return Result(True, None, None, self.FileManager.load_json(file_path))
+            metadata = self.FileManager.load_json(file_path)
+            if not metadata.success:
+                raise ValueError("Failed to load metadata.")
+            if metadata.data is None:
+                raise ValueError("Metadata is None.")
+            return Result(True, None, None, metadata.data)
         except Exception as e:
             return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
 
@@ -230,12 +262,15 @@ class StorageManager:
                 - 최종/에러 데이터 (None or dict)
         """
         try:
-            save_path = os.path.join(self.base_dir, save_id)
+            save_path = os.path.join(self.base_dir, save_id) # saves/save_id
             if os.path.exists(save_path):
-                shutil.rmtree(save_path)
+                try:
+                    shutil.rmtree(save_path) # 폴더 및 내부 파일 모두 삭제
+                except PermissionError:
+                    shutil.rmtree(save_path, onerror=lambda func, p, exc: (os.chmod(p, stat.S_IWRITE), func(p))) # 권한 문제로 삭제 실패 시 권한 변경 후 재시도
                 return Result(True, None, None, None)
             else:
-                raise FileNotFoundError(f"Save ID '{save_id}' does not exist.")
+                raise FileNotFoundError(f"Save ID '{save_id}' is maybe already deleted or does not exist.")
         except Exception as e:
             return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
 
@@ -259,13 +294,13 @@ class StorageManager:
         except Exception as e:
             return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
 
-    def validate_save(self, save_id):
+    def validate_save(self, save_id: str, required_files: List = None):
         """
-        필수 파일(user.json, stocks.json 등) 존재 여부 확인
+        필수 파일(user.json, metadata.json 등) 존재 여부 확인
 
         Args:
             save_id (str): 확인할 저장 ID (필수)
-
+            required_files (list, optional): 필수 파일 목록 (필수)
         Returns:
             tuple: (bool, str or None, str or None, dict)
                 - 성공 여부 (bool)
@@ -274,7 +309,8 @@ class StorageManager:
                 - 존재 여부/에러 데이터 (dict)
         """
         try:
-            required_files = ["user.json", "stocks.json", "metadata.json"]
+            if required_files is None:
+                raise ValueError("required_files must be provided as a list of filenames.")
             save_path = os.path.join(self.base_dir, save_id)
             searched_file = os.listdir(save_path)
             missing_files = []
@@ -304,34 +340,57 @@ class StorageManager:
         """
         try:
             saves = self.list_saves()
-            if saves[0] is False:
+            if not saves.success:
                 raise ValueError("Failed to list saves.")
             latest_save = None
             latest_time = 0
-            for save in saves:
-                    metadata = self.load_metadata(save)
-                    if isinstance(metadata, tuple) and metadata[0] is False:
-                        raise ValueError(f"Failed to load metadata for save: {save}")
-                    timestamp_str = metadata.get("timestamp", "")
-                    try:
-                        timestamp = time.mktime(time.strptime(timestamp_str, "%Y-%m-%d,%H:%M:%S"))
-                        if timestamp > latest_time:
-                            latest_time = timestamp
-                            latest_save = save
-                    except ValueError:
-                        continue
+            for save in saves.data:
+                metadata = self.load_metadata(save)
+                if isinstance(metadata, tuple) and metadata.success is False:
+                    raise ValueError(f"Failed to load metadata for save: {save}")
+                timestamp_str = metadata.data.get("timestamp", "")
+
+                timestamp = time.mktime(time.strptime(timestamp_str, "%Y-%m-%d,%H:%M:%S"))
+                if timestamp > latest_time:
+                    latest_time = timestamp
+                    latest_save = save
             if latest_save is None:
                 raise ValueError("No valid saves found.")
             return Result(True, None, None, latest_save)
-        except ValueError as e:
+        except Exception as e:
             return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
-        
-# StorageManager().save_all()
-        
-# print(StorageManager().validate_save("save_1"))
+
+# 테스트 코드
+
+"""
+
+user_data = {"name": "Alice", "level": 5, "experience": 1500}
+stocks_data = {"AAPL": 10, "GOOGL": 5, "TSLA": 2}
+data = [    
+        {"user_data": user_data}, 
+        {"stocks_data": stocks_data}
+       ]    
+a = StorageManager().save_all(data)
+print(a)
+""" 
+
+# b = StorageManager().save_data({"name": "Alice", "level": 5, "experience": 150}, "user_data", "save_1")
+# print(b)
+    
+# print(StorageManager().validate_save("save_1", ["user_data.json", "stocks_data.json", "metadata.json"]))
 
 # print(StorageManager().get_latest_save_id())
 
+# b = StorageManager().delete_save("save_1")
+# print(b)
+
+# print(StorageManager().list_saves())
+
+# print(StorageManager().load_data("user_data"))
+
+# print(StorageManager().load_metadata("save_2"))
+
+# print(StorageManager().save_exists("save_2"))
 
         
         

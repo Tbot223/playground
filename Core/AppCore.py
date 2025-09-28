@@ -10,7 +10,7 @@ from typing import NamedTuple
 from typing import Any, Dict, List, Tuple, Union, Optional
 
 # internal modules
-import Result
+from Result import Result
 
 class AppCore:
     """
@@ -207,7 +207,7 @@ class FileManager():
             data (dict): 저장할 데이터
             file_path (str): 저장할 파일 경로
             key (str): 저장할 데이터의 키 (선택적)
-            serialization (bool): 직렬화 여부
+            serialization (bool): 직렬화 여부 
         
         Returns:
             tuple: (bool, str or None, str or None, None or dict)
