@@ -64,7 +64,7 @@ class StorageManager:
         self.backup_dir = "backup"
         os.makedirs(self.base_dir, exist_ok=True)
 
-    def load_data(self, save_type, save_id="latest"):
+    def load_data(self, save_type: str, save_id: str="latest") -> Result:
         """
         /saves/(save_id)/(save_type).json 에서 데이터를 불러옵니다.
 
@@ -90,7 +90,7 @@ class StorageManager:
         except Exception as e:
             return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
 
-    def save_data(self, save_data, save_type, save_id):
+    def save_data(self, save_data: dict, save_type: str, save_id: str = None) -> Result:
         """
         /saves/(save_id)/(save_type).json 에 데이터를 저장합니다.
 
@@ -116,7 +116,7 @@ class StorageManager:
         except Exception as e:
             return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
 
-    def save_all(self, data: List[Dict]=None, save_id=None):
+    def save_all(self, data: List[Dict]=None, save_id: str=None) -> Result:
         """
         user_data, world_data 등 입력된 데이터를 모두 저장합니다.
 
@@ -209,7 +209,7 @@ class StorageManager:
         except Exception as e:
             return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
 
-    def load_metadata(self, save_id):
+    def load_metadata(self, save_id: str) -> Result:
         """
         저장된 메타데이터 불러오기
 
@@ -238,7 +238,7 @@ class StorageManager:
         except Exception as e:
             return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
 
-    def list_saves(self):
+    def list_saves(self) -> Result:
         """
         saves/ 폴더 내의 모든 저장 ID를 반환
 
@@ -255,7 +255,7 @@ class StorageManager:
         except Exception as e:
             return Result(False, str(e), self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
         
-    def delete_save(self, save_id):
+    def delete_save(self, save_id: str) -> Result:
         """
         해당 저장 폴더를 삭제
 
@@ -282,7 +282,7 @@ class StorageManager:
         except Exception as e:
             return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
 
-    def save_exists(self, save_id):
+    def save_exists(self, save_id: str) -> Result:
         """
         특정 저장 ID가 존재하는지 확인
 
@@ -335,7 +335,7 @@ class StorageManager:
         except Exception as e:
             return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
 
-    def get_latest_save_id(self):
+    def get_latest_save_id(self) -> Result:
         """
         가장 최근에 생성된 저장 ID 반환
 

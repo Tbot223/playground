@@ -177,7 +177,7 @@ class FileManager():
             print(f"Error loading JSON from {file_path}: {e}")
             return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
         
-    def load_file(self, file_path):
+    def load_file(self, file_path: str) -> Result:
         """
         파일을 문자열로 불러오는 함수
 
@@ -198,7 +198,7 @@ class FileManager():
             print(f"Error loading file from {file_path}: {e}")
             return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
 
-    def save_json(self, data, file_path, key=None, serialization=False):
+    def save_json(self, data: dict, file_path: str, key: str=None, serialization: bool=False) -> Result:
         """
         딕셔너리를 json 파일로 저장하는 함수 (원자적 쓰기 적용)
         - Only JSON files are supported. Other formats Use Atomic_write.
@@ -255,7 +255,7 @@ class FileManager():
                     return Result(False, f"{type(err).__name__} :{str(err)}", self.exception_tracker.get_exception_location(err).data, self.exception_tracker.get_exception_info(err).data)
             return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
                 
-    def Atomic_write(self, data, file_path):
+    def Atomic_write(self, data: str, file_path: str) -> Result:
         """
         원자적 쓰기를 수행하는 함수
 
@@ -315,7 +315,7 @@ class ExceptionTracker():
     def __init__(self):
         pass
 
-    def get_exception_location(self, error):
+    def get_exception_location(self, error: Exception) -> Result:
         """
         예외가 발생한 위치를 추적하고 관련 정보를 반환하는 함수
         - 정보 형식 (str): '{file}', line {line}, in {function}'
@@ -338,7 +338,7 @@ class ExceptionTracker():
             print("An error occurred while handling another exception. This may indicate a critical issue.")
             return Result(False, f"{type(e).__name__} :{str(e)}", "AppCore.ExceptionTracker.get_exception_location, R315-336", traceback.format_exc())
 
-    def get_exception_info(self, error, user_input=None, params=None):
+    def get_exception_info(self, error: Exception, user_input: Any=None, params: dict=None) -> Result:
         """
         예외의 정보를 추적하고 관련 정보를 반환하는 함수
         
