@@ -43,4 +43,4 @@ error_info(Result.data)
         "Python_Executable": "Path to Python executable",
         "Current_Working_Directory": "Current working directory"
     }
-}
+    }

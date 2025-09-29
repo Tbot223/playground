@@ -29,9 +29,6 @@ class AppCore:
 
     3. 화면 지우기: 플랫폼 독립적으로 화면을 지우는 기능을 제공합니다.
         - clear_screen: 화면을 지웁니다.
-
-    4. 예외 위치 추적: 예외가 발생한 위치를 추적하고 관련 정보를 반환하는 기능을 제공합니다.
-        - get_exception_location: 예외가 발생한 위치를 반환합니다.
     """
     SCREEN_CLEAR_LINES = 50  # 매직 넘버를 상수로
 
