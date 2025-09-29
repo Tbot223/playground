@@ -24,7 +24,7 @@ class LoggerManager:
 
         if not os.path.exists(base_dir):
             os.makedirs(f"{parent_dir}{base_dir}", exist_ok=True)
-        today = time.strftime("%Y-%m-%d,%H:%M:%S", time.localtime()).split(",")
+        today = time.strftime("%Y-%m-%d,%Hh-%Mm-%Ss", time.localtime()).split(",")
         log_filename = os.path.join(f"{parent_dir}{base_dir}/{name}_{today[0]}_{today[1]}.log")
 
         formatter = logging.Formatter('%(asctime)s : [%(name)s] - [%(levelname)s] : %(message)s')

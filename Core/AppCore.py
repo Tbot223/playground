@@ -8,6 +8,8 @@ import traceback
 import time
 from typing import NamedTuple
 from typing import Any, Dict, List, Tuple, Union, Optional
+import platform
+import sys
 
 # internal modules
 from Result import Result
@@ -34,8 +36,9 @@ class AppCore:
     SCREEN_CLEAR_LINES = 50  # 매직 넘버를 상수로
 
     def __init__(self):
-        os.makedirs("language", exist_ok=True)
-        self.lang = [os.path.splitext(file)[0] for file in os.listdir("./language")]
+        parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        os.makedirs(f"{parent_dir}/language", exist_ok=True)
+        self.lang = [os.path.splitext(file)[0] for file in os.listdir(f"{parent_dir}/language")]
         self._lang_cache = {}  # 언어 캐시 딕셔너리
         self.FileManager = FileManager()
         self.exception_tracker = ExceptionTracker()
@@ -50,14 +53,6 @@ class AppCore:
         Args:
             comparison_type (str): 비교 유형 ("above", "below", "equal")
             threshold (Any, But list, dict, tuple is not allowed): 기준 값
-            json_data (dict): 딕셔너리 데이터
-
-        Returns:
-            Result: 결과 객체
-                - 성공 여부 (bool)
-                - error 메시지 (str | None)
-                - 컨텍스트 태그 (str | None)
-                - 최종/에러 데이터 (list | dict)
         """
         try:
             matching_keys = []
@@ -98,16 +93,6 @@ class AppCore:
         Fallback 메커니즘이 없습니다.
         호출 전에 언어와 키가 유효한지 확인해야 합니다.
         실패 시 캐시 초기화 및 예외 처리합니다.
-
-        Args:
-            lang (str): 언어 설정
-            key (str): 텍스트 키
-        Returns:
-            Result: 결과 객체
-                - 성공 여부 (bool)
-                - error 메시지 (str | None)
-                - 컨텍스트 태그 (str | None)
-                - 최종/에러 데이터 (str | dict)
         """
         try:
             if lang not in self.lang: # 언어 확인
@@ -115,7 +100,7 @@ class AppCore:
 
             # 캐시 확인
             if lang not in self._lang_cache:
-                cache = self.FileManager.load_json(f"./language/{lang}.json")
+                cache = self.FileManager.load_json(f"{self.parent_dir}/language/{lang}.json")
                 if not cache.success:
                     raise FileNotFoundError(f"Language file for '{lang}' could not be loaded.")
                 self._lang_cache[lang] = cache.data
@@ -164,17 +149,7 @@ class FileManager():
 
     def load_json(self, file_path: str) -> Result:
         """
-        json 파일을 딕셔너리로 불러오는 함수
-
-        Args:
-            file_path (str): 불러올 파일 경로
-
-        Returns:
-            Result: 결과 객체
-                - 성공 여부 (bool)
-                - error 메시지 (str | None)
-                - 컨텍스트 태그 (str | None)
-                - 최종/에러 데이터 (dict)
+        JSON 파일을 딕셔너리로 불러오는 함수
         """
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
@@ -186,16 +161,6 @@ class FileManager():
     def load_file(self, file_path: str) -> Result:
         """
         파일을 문자열로 불러오는 함수
-
-        Args:
-            file_path (str): 불러올 파일 경로
-
-        Returns:
-            Result: 결과 객체
-                - 성공 여부 (bool)
-                - error 메시지 (str | None)
-                - 컨텍스트 태그 (str | None)
-                - 최종/에러 데이터 (str | dict)
         """
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
@@ -208,19 +173,8 @@ class FileManager():
         """
         딕셔너리를 json 파일로 저장하는 함수 (원자적 쓰기 적용)
         - Only JSON files are supported. Other formats Use Atomic_write.
-
-        Args:
-            data (dict): 저장할 데이터
-            file_path (str): 저장할 파일 경로
-            key (str): 저장할 데이터의 키 (선택적)
-            serialization (bool): 직렬화 여부 
-        
-        Returns:
-            Result: 결과 객체
-                - 성공 여부 (bool)
-                - error 메시지 (str | None)
-                - 컨텍스트 태그 (str | None)
-                - 최종/에러 데이터 (None | dict)
+        - If 'key' is provided, the function updates the existing JSON file by adding or updating the specified key with the new data.
+        - If 'key' is None, the function overwrites the entire JSON file with the new data.
         """
         try:
             # 디렉토리가 존재하지 않으면 생성
@@ -264,18 +218,6 @@ class FileManager():
     def Atomic_write(self, data: str, file_path: str) -> Result:
         """
         원자적 쓰기를 수행하는 함수
-
-        Args:
-            data (str): 저장할 데이터 (문자열)
-            file_path (str): 저장할 파일 경로
-            ex) Atomic_write("Hello, World!", "./data/example.txt")
-
-        Returns:
-            Result: 결과 객체
-                - 성공 여부 (bool)
-                - error 메시지 (str | None)
-                - 컨텍스트 태그 (str | None)
-                - 최종/에러 데이터 (None | dict)
         """
         try:
             # 디렉토리가 존재하지 않으면 생성
@@ -319,22 +261,29 @@ class ExceptionTracker():
     """
 
     def __init__(self):
-        pass
+        # 시스템 정보 캐싱
+        # 안전하게 현재 작업 디렉토리 가져오기
+        try:
+            cwd = os.getcwd()
+        except Exception:
+            cwd = "<Permission Denied or Unavailable>"
+
+        self._system_info = {
+            "OS": platform.system(),
+            "OS_version": platform.version(),
+            "Release": platform.release(),
+            "Architecture": platform.machine(),
+            "Processor": platform.processor(),
+            "Python_Version": platform.python_version(),
+            "Python_Executable": sys.executable,
+            "Current_Working_Directory": cwd
+        }
 
     def get_exception_location(self, error: Exception) -> Result:
         """
         예외가 발생한 위치를 추적하고 관련 정보를 반환하는 함수
-        - 정보 형식 (str): '{file}', line {line}, in {function}'
-        
-        Args:
-            error (Exception): 예외 객체 (필수)
-
-        Returns:
-            Result: 결과 객체
-                - 성공 여부 (bool) : True if successful, False otherwise
-                - error 메시지 (str | None) : None if successful
-                - 컨텍스트 태그 (str | None)  : None if successful
-                - 위치 정보 (str) : if failed, traceback string otherwise
+        - 반환 정보는 Result 객체의 data에 문자열로 포함됩니다.
+        - 형식 (str): '{file}', line {line}, in {function}'
         """
         try:
             tb = traceback.extract_tb(error.__traceback__)
@@ -349,37 +298,9 @@ class ExceptionTracker():
         예외의 정보를 추적하고 관련 정보를 반환하는 함수
         
         Error 데이터의 dict에는 traceback, 위치 정보, 발생 시각, 입력 컨텍스트 등이 포함되어 있습니다.
-
-        Args:
-            error (Exception): 예외 객체 (필수)
-            user_input (str): 사용자 입력 (선택적)
-            params (dict): 추가 매개변수 (선택적)
-
-        Returns:
-            Result: 결과 객체
-                - 성공 여부 (bool) : True if successful, False otherwise
-                - error 메시지 (str | None) : None if successful
-                - 컨텍스트 태그 (str | None)  : None if successful
-                - Error 데이터 (dict | str) : dict if successful, traceback string otherwise
-                - dict 구조:
-                    {
-                        "success": bool,
-                        "error": {
-                            "type": "ExceptionType",
-                            "message": "Exception message"
-                        },
-                        "traceback": "Full traceback string",
-                        "location": {
-                            "file": "filename",
-                            "line": X,
-                            "function": "function_name"
-                        },
-                        "timestamp": "YYYY-MM-DD HH:MM:SS",
-                        "context": {
-                            "user_input": user_input,
-                            "params": params
-                        }
-                    }
+        
+        - error_info (dict):
+            Readme.md 참고
         """
         try:
             tb = traceback.extract_tb(error.__traceback__)
@@ -390,17 +311,18 @@ class ExceptionTracker():
                     "type": type(error).__name__ if error else "UnknownError", 
                     "message": str(error) if error else "No exception information available"
                 },
-                "traceback": traceback.format_exc(),
                 "location": {
-                    "file": frame.filename,
-                    "line": frame.lineno,
-                    "function": frame.name
+                    "file": frame.filename if frame else "Unknown",
+                    "line": frame.lineno if frame else -1,
+                    "function": frame.name if frame else "Unknown"
                 },
                 "timestamp": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
-                "context": {
+                "input_context": {
                     "user_input": user_input,
                     "params": params
-                }
+                },
+                "traceback": traceback.format_exc(),
+                "computer_info": self._system_info
             }
             return Result(True, None, None, error_info)
         except Exception as e:
