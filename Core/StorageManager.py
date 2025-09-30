@@ -7,8 +7,7 @@ from typing import Union, Optional, Tuple, List, Dict
 import stat
 
 # internal modules
-import AppCore
-from Result import Result
+from Core import Result, AppCore
 
 class StorageManager:
     """

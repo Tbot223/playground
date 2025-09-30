@@ -12,7 +12,7 @@ import platform
 import sys
 
 # internal modules
-from Result import Result
+from Core import Result
 
 class AppCore:
     """
@@ -33,9 +33,9 @@ class AppCore:
     SCREEN_CLEAR_LINES = 50  # 매직 넘버를 상수로
 
     def __init__(self):
-        parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        os.makedirs(f"{parent_dir}/language", exist_ok=True)
-        self.lang = [os.path.splitext(file)[0] for file in os.listdir(f"{parent_dir}/language")]
+        self.parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        os.makedirs(f"{self.parent_dir}/language", exist_ok=True)
+        self.lang = [os.path.splitext(file)[0] for file in os.listdir(f"{self.parent_dir}/language")]
         self._lang_cache = {}  # 언어 캐시 딕셔너리
         self.FileManager = FileManager()
         self.exception_tracker = ExceptionTracker()
@@ -58,7 +58,7 @@ class AppCore:
             if not isinstance(json_data, dict): # json_data 유형 확인
                 raise ValueError("json_data must be a dictionary.")
             if isinstance(threshold, (dict, list, tuple)): # threshold 유형 확인
-                raise ValueError("Threshold must be a single value for 'above' or 'below' comparisons.")
+                raise ValueError("Threshold of type dict, list, or tuple is not supported.")
             if comparison_type not in ["above", "below", "equal"]: # 비교 유형 확인
                 raise ValueError("comparison_type must be 'above', 'below', or 'equal'.")
 
@@ -83,7 +83,7 @@ class AppCore:
         except Exception as e:
             return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
 
-    def text(self, lang: str, key: str) -> Result:
+    def getTextByLang(self, lang: str, key: str) -> Result:
         """
         언어 설정에 따라 텍스트를 반환하는 함수
 
@@ -119,7 +119,6 @@ class AppCore:
         - Returns is not necessary as this function does not return any value.
         - This function clears the console screen.
         """
-        
         try:
             if os.name == 'nt':  # Windows
                 subprocess.run('cls', shell=True, check=True)
@@ -174,18 +173,10 @@ class FileManager():
         - If 'key' is None, the function overwrites the entire JSON file with the new data.
         """
         try:
-            # 디렉토리가 존재하지 않으면 생성
-            os.makedirs(os.path.dirname(file_path), exist_ok=True)
-        
-            # 임시 파일 경로 초기화
-            temp_file_path = None  
-
             # 저장할 최종 데이터 준비
             if key is not None:
-                # key가 None이 아닌 경우 기존 데이터에 추가
-                cache = self.load_json(file_path)
                 if os.path.exists(file_path):
-                    pass # 파일이 존재하면 기존 데이터를 불러옴
+                    cache = self.load_json(file_path)
                 else:
                     raise FileNotFoundError(f"File '{file_path}' does not exist for updating with key '{key}'.")
                 if not cache.success:
@@ -195,7 +186,6 @@ class FileManager():
                 existing_data[key] = data
                 final_data = existing_data
             else:
-                # key가 None인 경우 전체 데이터를 덮어쓰기
                 final_data = data
             
             # 원자적 쓰기 수행
@@ -203,25 +193,18 @@ class FileManager():
             return Result(True, None, None, None)
 
         except Exception as e:
-            print(f"Error saving JSON to {file_path}: {e}")
-            # 임시 파일 정리 (이동 실패 시)
-            if temp_file_path and os.path.exists(temp_file_path):
-                try:
-                    os.unlink(temp_file_path)
-                except (OSError, Exception) as err:
-                    return Result(False, f"{type(err).__name__} :{str(err)}", self.exception_tracker.get_exception_location(err).data, self.exception_tracker.get_exception_info(err).data)
             return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
                 
     def Atomic_write(self, data: str, file_path: str) -> Result:
         """
         원자적 쓰기를 수행하는 함수
         """
+        temp_file_path = None  
+
         try:
             # 디렉토리가 존재하지 않으면 생성
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
-            # 임시 파일 경로 초기화
-            temp_file_path = None  
             # 원자적 쓰기: 임시 파일에 먼저 쓰기
             with tempfile.NamedTemporaryFile(
                 mode='w', 
@@ -238,13 +221,13 @@ class FileManager():
             return Result(True, None, None, None)
             
         except Exception as e:
-            print(f"Error during atomic write to {file_path}: {e}")
             # 임시 파일 정리 (이동 실패 시)
             if temp_file_path and os.path.exists(temp_file_path):
                 try:
                     os.unlink(temp_file_path)
                 except (OSError, Exception) as e:
                     return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
+            return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
                 
 class ExceptionTracker():
     """

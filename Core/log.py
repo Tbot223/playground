@@ -4,8 +4,10 @@ import time
 import os
 
 # internal modules
-from AppCore import ExceptionTracker
-from Result import Result
+from Core import AppCore
+from .Result import Result
+
+ExceptionTracker = AppCore.ExceptionTracker()
 
 class LoggerManager:
     """
