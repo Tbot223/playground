@@ -7,12 +7,13 @@ AppCore.py and StorageManager.py will have more detailed development process in 
 ## Result
 
 '''python
-Result(
+Result
+    (
     success: bool
     error: Optional[str]
     context: Optional[str]
     data: Any
-)
+    )
 
 error_info(Result.data)
 
