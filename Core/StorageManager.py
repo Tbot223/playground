@@ -273,7 +273,7 @@ class StorageManager:
         except Exception as e:
             return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
 
-# Test code
+# Example usage:
 
 """
 user_data = {"name": "Alice", "level": 5, "experience": 1500}
@@ -285,7 +285,6 @@ data = [
 a = StorageManager().save_all(data)
 print(a)
 """
-
 
 # StorageManager().save_data({"name": "Alice", "level": 5, "experience": 150}, "user_data", "save_1")
     
@@ -302,9 +301,6 @@ print(a)
 # print(StorageManager().load_metadata("save_2"))
 
 # print(StorageManager().save_exists("save_2"))
-
-        
-        
 
 """
 [StorageManager features that need to be updated]

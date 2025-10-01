@@ -53,5 +53,6 @@ class LoggerManager:
 
 
 # Example usage:
+
 # logger = LoggerManager().get_logger()
 # logger.info("Log system initialized.")
