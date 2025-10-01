@@ -3,6 +3,8 @@
 # internal modules
 from Core import Result, LoggerManager, AppCore, StorageManager
 
+# This Code is will be deleted after pytest is fully implemented.
+
 class CodeTest:
     """
     코드 테스트 클래스
