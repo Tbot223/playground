@@ -16,21 +16,21 @@ from Core import Result
 
 class AppCore:
     """
-    AppCore 클래스는 통합적으로 여러 프로그램의 핵심 시스템 기능을 제공합니다.
+    The AppCore class provides integrated core system functionality for multiple programs.
 
-    JSON 파일 관리, 다국어 지원, 자료 구조 검색 등 
-    대부분의 프로그램에 적용 가능한 핵심 시스템 기능을 제공합니다.
+    Provides core system functionality applicable to most programs, including 
+    JSON file management, multilingual support, and data structure search.
 
-    1. 다국어 지원: 여러 언어로 된 텍스트를 관리하고 반환하는 기능을 제공합니다.
-        - text: 언어 설정에 따라 텍스트를 반환합니다.
+    1. Multilingual Support: Provides functionality to manage and return text in multiple languages.
+        - text: Returns text according to language settings.
 
-    2. 자료 구조 검색: 딕셔너리에서 특정 조건을 만족하는 키를 찾는 기능을 제공합니다.
-        - find_keys_by_value: 딕셔너리에서 특정 값 이상을 가진 키들을 찾습니다.
+    2. Data Structure Search: Provides functionality to find keys that meet specific conditions in dictionaries.
+        - find_keys_by_value: Finds keys with values above a specific threshold in dictionaries.
 
-    3. 화면 지우기: 플랫폼 독립적으로 화면을 지우는 기능을 제공합니다.
-        - clear_screen: 화면을 지웁니다.
+    3. Screen Clearing: Provides platform-independent screen clearing functionality.
+        - clear_screen: Clears the screen.
     """
-    SCREEN_CLEAR_LINES = 50  # 매직 넘버를 상수로
+    SCREEN_CLEAR_LINES = 50  # Magic number as constant
 
     def __init__(self):
         self.parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -42,40 +42,40 @@ class AppCore:
 
     def find_keys_by_value(self, json_data: Dict, threshold: Any, comparison_type: str) -> Result:
         """
-        딕셔너리에서 특정 값 이상을 가진 키들을 찾는 함수
+        Function to find keys with values above a specific threshold in dictionaries
 
-        만약 글자일 경우 equal만 지원합니다.
-        (bit 비교 지원 예정)
+        For string values, only 'equal' comparison is supported.
+        (bit comparison support planned)
 
         Args:
-            comparison_type (str): 비교 유형 ("above", "below", "equal")
-            threshold (Any, But list, dict, tuple is not allowed): 기준 값
+            comparison_type (str): Comparison type ("above", "below", "equal")
+            threshold (Any, But list, dict, tuple is not allowed): Reference value
         """
         try:
             matching_keys = []
             comparison_type = comparison_type.lower()
 
-            if not isinstance(json_data, dict): # json_data 유형 확인
+            if not isinstance(json_data, dict): # Check json_data type
                 raise ValueError("json_data must be a dictionary.")
-            if isinstance(threshold, (dict, list, tuple)): # threshold 유형 확인
+            if isinstance(threshold, (dict, list, tuple)): # Check threshold type
                 raise ValueError("Threshold of type dict, list, or tuple is not supported.")
-            if comparison_type not in ["above", "below", "equal"]: # 비교 유형 확인
+            if comparison_type not in ["above", "below", "equal"]: # Check comparison type
                 raise ValueError("comparison_type must be 'above', 'below', or 'equal'.")
 
             compare_ops = {
-                "above": lambda v: v > threshold, # '>' 연산자
-                "below": lambda v: v < threshold, # '<' 연산자
-                "equal": lambda v: v == threshold # '==' 연산자
+                "above": lambda v: v > threshold, # '>' operator
+                "below": lambda v: v < threshold, # '<' operator
+                "equal": lambda v: v == threshold # '==' operator
             }
 
-            for key, value in json_data.items(): # 딕셔너리 순회
+            for key, value in json_data.items(): # Iterate through dictionary
                 if isinstance(threshold, str) and not isinstance(value, str):
                     continue
                 if not isinstance(threshold, str) and isinstance(value, str):
                     continue
-                if isinstance(value, (dict, list, tuple)): # 값이 dict, list, tuple인 경우
+                if isinstance(value, (dict, list, tuple)): # If value is dict, list, tuple
                     continue
-                if compare_ops[comparison_type](value): # 비교 수행
+                if compare_ops[comparison_type](value): # Perform comparison
                     matching_keys.append(key)
 
             return Result(True, None, None, matching_keys)
@@ -85,36 +85,36 @@ class AppCore:
 
     def getTextByLang(self, lang: str, key: str) -> Result:
         """
-        언어 설정에 따라 텍스트를 반환하는 함수
+        Function to return text according to language settings
 
-        Fallback 메커니즘이 없습니다.
-        호출 전에 언어와 키가 유효한지 확인해야 합니다.
-        실패 시 캐시 초기화 및 예외 처리합니다.
+        No fallback mechanism.
+        Must verify that language and key are valid before calling.
+        Cache initialization and exception handling on failure.
         """
         try:
-            if lang not in self.lang: # 언어 확인
+            if lang not in self.lang: # Check language
                 raise ValueError(f"Language '{lang}' not supported. Available languages: {self.lang}")
 
-            # 캐시 확인
+            # Check cache
             if lang not in self._lang_cache:
                 cache = self.FileManager.load_json(f"{self.parent_dir}/language/{lang}.json")
                 if not cache.success:
                     raise FileNotFoundError(f"Language file for '{lang}' could not be loaded.")
                 self._lang_cache[lang] = cache.data
 
-            # 텍스트 반환
+            # Return text
             if key in self._lang_cache[lang]:
                 return Result(True, None, None, self._lang_cache[lang][key])
             else:
                 raise KeyError(f"Key '{key}' not found in language '{lang}'. Available keys: {list(self._lang_cache[lang].keys())}")
         except Exception as e:
-            self._lang_cache = {}  # 캐시 초기화
+            self._lang_cache = {}  # Initialize cache
             return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
 
     def clear_screen(self):
         """
-        화면을 지우는 함수
-        플랫폼 독립적이고 안전한 방법을 사용합니다.
+        Function to clear the screen
+        Uses platform-independent and safe methods.
 
         - Returns is not necessary as this function does not return any value.
         - This function clears the console screen.
@@ -125,27 +125,27 @@ class AppCore:
             else:  # Unix/Linux/macOS
                 subprocess.run('clear', shell=True, check=True)
         except (subprocess.CalledProcessError, FileNotFoundError):
-            # 명령어 실행 실패 시 대체
+            # Alternative when command execution fails
             print('\n' * self.SCREEN_CLEAR_LINES)
 
 class FileManager():
     """
-    FileManager 클래스는 다양한 파일 형식을 읽고 쓰는 기능을 제공합니다.
+    The FileManager class provides functionality to read and write various file formats.
 
-    현재는 JSON 파일 형식만 지원하지만, 향후 다른 형식도 추가할 수 있습니다.
+    Currently supports only JSON file format, but other formats can be added in the future.
 
-    1. JSON 파일 관리: JSON 파일을 안전하게 읽고 쓰는 기능을 제공합니다.
-        - load_json: JSON 파일을 딕셔너리로 불러옵니다.
-        - save_json: 딕셔너리를 JSON 파일로 저장합니다. (원자적 쓰기 적용)
+    1. JSON File Management: Provides functionality to safely read and write JSON files.
+        - load_json: Loads JSON files as dictionaries.
+        - save_json: Saves dictionaries as JSON files. (Atomic write applied)
 
-    2. 원자적 쓰기: 파일 저장 시 데이터 손상을 방지하기 위해 임시 파일을 사용하여 안전하게 저장합니다.
+    2. Atomic Write: Uses temporary files to safely save files and prevent data corruption during file saving.
     """
     def __init__(self):
         self.exception_tracker = ExceptionTracker()
 
     def load_json(self, file_path: str) -> Result:
         """
-        JSON 파일을 딕셔너리로 불러오는 함수
+        Function to load JSON files as dictionaries
         """
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
@@ -156,7 +156,7 @@ class FileManager():
         
     def load_file(self, file_path: str) -> Result:
         """
-        파일을 문자열로 불러오는 함수
+        Function to load files as strings
         """
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
@@ -167,13 +167,13 @@ class FileManager():
 
     def save_json(self, data: dict, file_path: str, key: str=None, serialization: bool=False) -> Result:
         """
-        딕셔너리를 json 파일로 저장하는 함수 (원자적 쓰기 적용)
+        Function to save dictionaries as JSON files (Atomic write applied)
         - Only JSON files are supported. Other formats Use Atomic_write.
         - If 'key' is provided, the function updates the existing JSON file by adding or updating the specified key with the new data.
         - If 'key' is None, the function overwrites the entire JSON file with the new data.
         """
         try:
-            # 저장할 최종 데이터 준비
+            # Prepare final data to save
             if key is not None:
                 if os.path.exists(file_path):
                     cache = self.load_json(file_path)
@@ -188,7 +188,7 @@ class FileManager():
             else:
                 final_data = data
             
-            # 원자적 쓰기 수행
+            # Perform atomic write
             self.Atomic_write(json.dumps(final_data, ensure_ascii=False, indent=4) if serialization else json.dumps(final_data), file_path)
             return Result(True, None, None, None)
 
@@ -197,15 +197,15 @@ class FileManager():
                 
     def Atomic_write(self, data: str, file_path: str) -> Result:
         """
-        원자적 쓰기를 수행하는 함수
+        Function to perform atomic write
         """
         temp_file_path = None  
 
         try:
-            # 디렉토리가 존재하지 않으면 생성
+            # Create directory if it doesn't exist
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
-            # 원자적 쓰기: 임시 파일에 먼저 쓰기
+            # Atomic write: write to temporary file first
             with tempfile.NamedTemporaryFile(
                 mode='w', 
                 delete=False, 
@@ -216,12 +216,12 @@ class FileManager():
                 tmp.write(data)
                 temp_file_path = tmp.name
             
-            # 원자적 이동
+            # Atomic move
             shutil.move(temp_file_path, file_path)
             return Result(True, None, None, None)
             
         except Exception as e:
-            # 임시 파일 정리 (이동 실패 시)
+            # Clean up temporary file (on move failure)
             if temp_file_path and os.path.exists(temp_file_path):
                 try:
                     os.unlink(temp_file_path)
@@ -231,18 +231,18 @@ class FileManager():
                 
 class ExceptionTracker():
     """
-    ExceptionTracker 클래스는 예외 발생 시 위치 정보를 추적하고 관련 정보를 반환하는 기능을 제공합니다.
+    The ExceptionTracker class provides functionality to track location information when exceptions occur and return related information.
     
-    1. 예외 위치 추적: 예외가 발생한 위치를 추적하고 관련 정보를 반환하는 기능을 제공합니다.
-        - get_exception_location: 예외가 발생한 위치를 반환합니다.
+    1. Exception Location Tracking: Provides functionality to track where exceptions occur and return related information.
+        - get_exception_location: Returns the location where the exception occurred.
 
-    2. 예외 정보 추적: 예외의 정보를 추적하고 관련 정보를 반환하는 기능을 제공합니다.
-        - get_exception_info: 예외의 정보를 반환합니다.
+    2. Exception Information Tracking: Provides functionality to track exception information and return related information.
+        - get_exception_info: Returns information about the exception.
     """
 
     def __init__(self):
-        # 시스템 정보 캐싱
-        # 안전하게 현재 작업 디렉토리 가져오기
+        # Cache system information
+        # Safely get current working directory
         try:
             cwd = os.getcwd()
         except Exception:
@@ -261,13 +261,13 @@ class ExceptionTracker():
 
     def get_exception_location(self, error: Exception) -> Result:
         """
-        예외가 발생한 위치를 추적하고 관련 정보를 반환하는 함수
-        - 반환 정보는 Result 객체의 data에 문자열로 포함됩니다.
-        - 형식 (str): '{file}', line {line}, in {function}'
+        Function to track where exceptions occurred and return related information
+        - Return information is included as a string in the data of the Result object.
+        - Format (str): '{file}', line {line}, in {function}'
         """
         try:
             tb = traceback.extract_tb(error.__traceback__)
-            frame = tb[-1]  # 가장 최근의 프레임
+            frame = tb[-1]  # Most recent frame
             return Result(True, None, None, f"'{frame.filename}', line {frame.lineno}, in {frame.name}")
         except Exception as e:
             print("An error occurred while handling another exception. This may indicate a critical issue.")
@@ -275,16 +275,16 @@ class ExceptionTracker():
 
     def get_exception_info(self, error: Exception, user_input: Any=None, params: dict=None) -> Result:
         """
-        예외의 정보를 추적하고 관련 정보를 반환하는 함수
+        Function to track exception information and return related information
         
-        Error 데이터의 dict에는 traceback, 위치 정보, 발생 시각, 입력 컨텍스트 등이 포함되어 있습니다.
+        The error data dict includes traceback, location information, occurrence time, input context, etc.
         
         - error_info (dict):
-            Readme.md 참고
+            See Readme.md
         """
         try:
             tb = traceback.extract_tb(error.__traceback__)
-            frame = tb[-1]  # 가장 최근의 프레임
+            frame = tb[-1]  # Most recent frame
             error_info = {
                 "success": False,
                 "error":{

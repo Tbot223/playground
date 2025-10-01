@@ -27,17 +27,17 @@ class TestAppCore:
             excepted = { "above": ["c"], "below": ["a"], "equal": ["b"] }
             assert set(result) == set(excepted[comparison_type])
 
-        # 기본 테스트 케이스 - 정수 비교
+        # Basic test case - integer comparison
         for comparison_type in ["above", "below", "equal"]:
             result = core.find_keys_by_value({"a": 1, "b": 2, "c": 3}, 2, comparison_type)
             assert result.success
             comparison_func(result.data, comparison_type)
-        # 추가 테스트 케이스 - 문자열 비교
+        # Additional test case - string comparison
         for comparison_type in ["above", "below", "equal"]:
             result = core.find_keys_by_value({"a": "apple", "b": "banana", "c": "cherry"}, "banana", comparison_type)
             assert result.success
             comparison_func(result.data, comparison_type)
-        # 추가 테스트 케이스 - 부동 소수점 비교
+        # Additional test case - floating point comparison
         for comparison_type in ["above", "below", "equal"]:
             result = core.find_keys_by_value({"a": 0.1, "b": 0.2, "c": 0.3}, 0.2, comparison_type)
             assert result.success
@@ -93,7 +93,7 @@ class TestAppCore:
         assert result.success
         assert test_file.read_text() == '{"key": "value", "jone": {"age": 30, "city": "New York"}, "list": [1, 2, 3, 4, 5]}'
 
-        # 단일 객체 저장(수정) 테스트
+        # Single object save (update) test
         data_update = {
             "age": 31,
             "city": "Los Angeles"

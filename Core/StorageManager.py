@@ -11,49 +11,49 @@ from Core import Result, AppCore
 
 class StorageManager:
     """
-    StorageManager는 저장 및 불러오기 기능을 담당합니다.
+    StorageManager handles save and load functionality.
 
-    data 저장, 불러오기, 삭제, 목록화, 유효성 검사 등을 수행합니다.
-    모든 데이터는 JSON 형식으로 저장됩니다.
-    기본 저장 경로는 ./saves/입니다.
-    백업 기능은 추후 구현 예정입니다.
+    Performs data saving, loading, deletion, listing, validation, etc.
+    All data is stored in JSON format.
+    Default save path is ./saves/.
+    Backup functionality is planned for future implementation.
 
     1. load_data(save_type, save_id="latest")
-        - 특정 저장 ID에서 지정된 유형의 데이터를 불러옵니다.
+        - Loads specified type of data from a specific save ID.
 
     2. save_data(save_data, save_type, save_id)
-        - 특정 저장 ID에 지정된 유형의 데이터를 저장합니다.
+        - Saves specified type of data to a specific save ID.
 
     3. save_all(save_id=None)
-        - user, stocks 데이터를 모두 저장합니다.
-        - save_id가 None이면 새로운 ID를 생성합니다.
-        - save_id가 주어지면 해당 ID에 데이터를 덮어씁니다.
-        - 새로운 저장을 생성할 때는 save_all을 사용해야 합니다.
+        - Saves all user, stocks data.
+        - If save_id is None, generates a new ID.
+        - If save_id is provided, overwrites data to that ID.
+        - Use save_all when creating new saves.
 
     4. save_metadata(save_id)
-        - 저장 시간, 유저 이름, 플레이 시간 등 메타데이터 저장
+        - Save metadata such as save time, user name, play time
 
     5. load_metadata(save_id)
-        - 저장된 메타데이터 불러오기
+        - Load saved metadata
 
     6. list_saves()
-        - saves/ 폴더 내의 모든 저장 ID를 반환합니다.
+        - Returns all save IDs in the saves/ folder.
         
     7. delete_save(save_id)
-        - 해당 저장 폴더를 삭제합니다.
+        - Deletes the corresponding save folder.
 
     8. save_exists(save_id)
-        - 특정 저장 ID가 존재하는지 확인합니다.
+        - Checks if a specific save ID exists.
 
     9. validate_save(save_id)
-        - 필수 파일(user.json, stocks.json 등) 존재 여부 확인
-        - 누락된 파일 목록 반환
+        - Check existence of required files (user.json, stocks.json, etc.)
+        - Return list of missing files
 
     10. get_latest_save_id()
-        - 가장 최근에 생성된 저장 ID 반환
+        - Return the most recently created save ID
 
     11. backup_save(save_id)
-        - 현재 필요 없음, 나중에 필요하면 구현
+        - Not needed currently, implement later if needed
     """
     def __init__(self):
         self.core = AppCore.AppCore()
@@ -65,7 +65,7 @@ class StorageManager:
 
     def load_data(self, save_type: str, save_id: str="latest") -> Result:
         """
-        /saves/(save_id)/(save_type).json 에서 데이터를 불러옵니다.
+        Load data from /saves/(save_id)/(save_type).json.
         """
         try:
             if save_id == "latest":
@@ -80,7 +80,7 @@ class StorageManager:
 
     def save_data(self, save_data: dict, save_type: str, save_id: str = None) -> Result:
         """
-        /saves/(save_id)/(save_type).json 에 데이터를 저장합니다.
+        Save data to /saves/(save_id)/(save_type).json.
         """
         try:
             if save_id is None:
@@ -94,13 +94,13 @@ class StorageManager:
 
     def save_all(self, data: List[Dict]=None, metadata: dict=None, save_id: str=None) -> Result:
         """
-        user_data, world_data 등 입력된 데이터를 모두 저장합니다.
+        Save all input data such as user_data, world_data, etc.
 
         Args:
-            data (list): 저장할 데이터 목록 (필수)
-                - 각 항목은 dict 형식이어야 합니다.
-                - 예: [{"user_data": user_data}, {"stocks_data": stocks_data}]
-                - 다른 형식 사용은 절대 금지!
+            data (list): List of data to save (required)
+                - Each item must be in dict format.
+                - Example: [{"user_data": user_data}, {"stocks_data": stocks_data}]
+                - Using other formats is absolutely prohibited!
         """
         try:
             if data is None:
@@ -113,27 +113,27 @@ class StorageManager:
                 if len(item) != 1:
                     raise ValueError("Each dictionary in data must contain exactly one key-value pair.")
             
-            def save_item(item, save_id=None): # 내부 함수로 데이터 저장
+            def save_item(item, save_id=None): # Internal function to save data
                 if save_id is not None:
                     for key, value in item.items():
                         file_path = f"saves/{save_id}/{key}.json"
                         self.FileManager.save_json(value, file_path)
-                else: # save_id가 None이면 새로운 저장 생성 불가
+                else: # Cannot create new save if save_id is None
                     raise ValueError("save_id cannot be None when saving individual items.(inner function, save_item)")
 
-            if save_id is not None: # 저장 ID 주어진 경우
+            if save_id is not None: # When save ID is provided
                 if not os.path.exists(os.path.join(self.base_dir, save_id)):
                     os.makedirs(os.path.join(self.base_dir, save_id), exist_ok=True)
                 self.save_metadata(save_id)
-                for item in data: # 주어진 ID에 데이터 덮어쓰기
+                for item in data: # Overwrite data to given ID
                     save_item(item, save_id)
                 return Result(True, None, None, None)
-            else: # 저장 ID 주어지지 않은 경우, 새로운 ID 생성
+            else: # When save ID is not provided, generate new ID
                 i = 1
-                while True: # save_1, save_2, ... 순으로 폴더 생성
+                while True: # Create folders in order: save_1, save_2, ...
                     candidate = f"save_{i}" 
                     candidate_path = os.path.join(self.base_dir, candidate) # saves/save_i
-                    if not os.path.exists(candidate_path): # 해당 폴더가 없으면 생성
+                    if not os.path.exists(candidate_path): # Create if folder doesn't exist
                         os.makedirs(candidate_path, exist_ok=True)
                         self.save_metadata(candidate)
                         for item in data:
@@ -145,7 +145,7 @@ class StorageManager:
 
     def save_metadata(self, save_id: str, other_info: dict=None) -> Result:
         """
-        저장 시간, 유저 이름, 플레이 시간 등 메타데이터 저장
+        Save metadata such as save time, user name, play time, etc.
         """
         try:
             if save_id is None:
@@ -165,7 +165,7 @@ class StorageManager:
 
     def load_metadata(self, save_id: str) -> Result:
         """
-        저장된 메타데이터 불러오기
+        Load saved metadata
         """
         try:
             if save_id is None:
@@ -184,7 +184,7 @@ class StorageManager:
 
     def list_saves(self) -> Result:
         """
-        saves/ 폴더 내의 모든 저장 ID를 반환
+        Return all save IDs in the saves/ folder
         """
         try:
             saves = os.listdir(self.base_dir)
@@ -194,15 +194,15 @@ class StorageManager:
         
     def delete_save(self, save_id: str) -> Result:
         """
-        해당 저장 폴더를 삭제
+        Delete the corresponding save folder
         """
         try:
             save_path = os.path.join(self.base_dir, save_id) # saves/save_id
             if os.path.exists(save_path):
                 try:
-                    shutil.rmtree(save_path) # 폴더 및 내부 파일 모두 삭제
+                    shutil.rmtree(save_path) # Delete folder and all internal files
                 except PermissionError:
-                    shutil.rmtree(save_path, onerror=lambda func, p, exc: (os.chmod(p, stat.S_IWRITE), func(p))) # 권한 문제로 삭제 실패 시 권한 변경 후 재시도
+                    shutil.rmtree(save_path, onerror=lambda func, p, exc: (os.chmod(p, stat.S_IWRITE), func(p))) # Retry after changing permissions if deletion fails due to permission issues
                 return Result(True, None, None, None)
             else:
                 raise FileNotFoundError(f"Save ID '{save_id}' is maybe already deleted or does not exist.")
@@ -211,7 +211,7 @@ class StorageManager:
 
     def save_exists(self, save_id: str) -> Result:
         """
-        특정 저장 ID가 존재하는지 확인
+        Check if a specific save ID exists
         """
         try:
             save_path = os.path.join(self.base_dir, save_id)
@@ -221,12 +221,12 @@ class StorageManager:
 
     def validate_save(self, save_id: str, required_files: List = None):
         """
-        필수 파일(user.json, metadata.json 등) 존재 여부 확인
+        Check existence of required files (user.json, metadata.json, etc.)
 
         Args:
-            required_files (list): 필수 파일 목록 (필수)
-            - 예: ["user.json", "stocks.json", "metadata.json"]
-            - None이면 ValueError 발생
+            required_files (list): List of required files (required)
+            - Example: ["user.json", "stocks.json", "metadata.json"]
+            - ValueError occurs if None
         """
         try:
             if required_files is None:
@@ -249,7 +249,7 @@ class StorageManager:
 
     def get_latest_save_id(self) -> Result:
         """
-        가장 최근에 생성된 저장 ID 반환
+        Return the most recently created save ID
         """
         try:
             saves = self.list_saves()
@@ -273,7 +273,7 @@ class StorageManager:
         except Exception as e:
             return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
 
-# 테스트 코드
+# Test code
 
 """
 user_data = {"name": "Alice", "level": 5, "experience": 1500}
@@ -307,10 +307,10 @@ print(a)
         
 
 """
-[StorageManager 업데이트 해야할 기능 목록]
+[StorageManager features that need to be updated]
 
-    1. backup_save(save_id) - 현재 필요 없음, 나중에 필요하면 구현
-    - 저장 시 backup/ 폴더에 복사본 생성
-    - 데이터 손상 대비, 복구 기능과 연계 가능
+    1. backup_save(save_id) - Not needed currently, implement later if needed
+    - Create copies in backup/ folder when saving
+    - Prepare for data corruption, can be linked with recovery functionality
     
 """

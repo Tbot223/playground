@@ -11,13 +11,13 @@ ExceptionTracker = AppCore.ExceptionTracker()
 
 class LoggerManager:
     """
-    로거 매니저 클래스
+    Logger manager class
 
-    로그 파일과 콘솔에 로그를 출력
+    Output logs to log files and console
     """
     def __init__(self, name="test", base_dir="/logs"):
         """
-        로거 매니저 초기화
+        Initialize logger manager
         """
         parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -31,22 +31,22 @@ class LoggerManager:
 
         formatter = logging.Formatter('%(asctime)s : [%(name)s] - [%(levelname)s] : %(message)s')
 
-        # 콘솔 핸들러
+        # Console handler
         console_handler = logging.StreamHandler()
         console_handler.setFormatter(formatter)
 
-        # 파일 핸들러
+        # File handler
         file_handler = logging.FileHandler(log_filename, mode='a', encoding='utf-8')
         file_handler.setFormatter(formatter)
 
-        # 중복 핸들러 방지
+        # Prevent duplicate handlers
         if not self.logger.hasHandlers():
             self.logger.addHandler(console_handler)
             self.logger.addHandler(file_handler)
 
     def get_logger(self):
         """
-        로거 객체 반환
+        Return logger object
         """
         return self.logger
     
