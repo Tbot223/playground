@@ -1,6 +1,9 @@
 # playground
 This repository is my small lab — a place where I experiment with system design, exception handling, and structural ideas.
 
+## Test
+MacBook Pro M1 (8GB) completed AppCore and StorageManager tests in 0.03 seconds with no issues.
+
 ## Result
 
 '''python
