@@ -4,9 +4,6 @@ import pytest
 import sys
 import os
 
-# Add parent directory to path to import Core module
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 # internal modules
 from Core import AppCore
 
