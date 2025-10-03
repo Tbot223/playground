@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Tuple, Union, Optional
 import platform
 import sys
 from concurrent.futures import ThreadPoolExecutor
+import multiprocessing as mp
 
 # internal modules
 from Core import Result
@@ -236,6 +237,8 @@ class FileManager():
         Function to process files in batches using multithreading.
         - files: List of file paths to process.
         - batch_size: Number of files to process in each batch.
+
+        files example: ['path/to/file1.json', 'path/to/file2.json', ...]
         """
         try:
             def process_batch(batch_files: List[str]) -> List[Result]:
@@ -245,6 +248,32 @@ class FileManager():
                     results.append(result)
                 return results
 
+            all_results = []
+            with mp.Pool(processes=4) as pool:
+                futures = [pool.apply_async(process_batch, (files[i:i+batch_size],))
+                           for i in range(0, len(files), batch_size)]
+                for future in futures:
+                    all_results.extend(future.get())
+            return Result(True, None, None, all_results)
+        except Exception as e:
+            return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
+        
+    def batch_process_json_threaded(self, files: List[str], batch_size: int=10) -> Result:
+        """
+        Function to process files in batches using multithreading.
+        - files: List of file paths to process.
+        - batch_size: Number of files to process in each batch.
+
+        files example: ['path/to/file1.json', 'path/to/file2.json', ...]
+        """
+        try:
+            def process_batch(batch_files: List[str]) -> List[Result]:
+                results = []
+                for file in batch_files:
+                    result = self.load_json(file).data
+                    results.append(result)
+                return results
+            
             all_results = []
             with ThreadPoolExecutor(max_workers=4) as executor:
                 futures = [executor.submit(process_batch, files[i:i+batch_size]) 
@@ -272,6 +301,33 @@ class FileManager():
                     results.append(result)
                 return results
 
+            all_results = []
+            with mp.Pool(processes=4) as pool:
+                futures = [pool.apply_async(process_batch, (data_list[i:i+batch_size],))
+                           for i in range(0, len(data_list), batch_size)]
+                for future in futures:
+                    all_results.extend(future.get())
+            return Result(True, None, None, all_results)
+        except Exception as e:
+            return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
+        
+    def batch_process_write_json_threaded(self, data_list: List[Tuple[dict, str]], batch_size: int=10, serialization: bool=False) -> Result:
+        """
+        Function to write files in batches using multithreading.
+        - data_list: List of tuples containing (data_dict, file_path).
+        - batch_size: Number of files to write in each batch.
+        - serialization: Whether to serialize JSON with indentation.
+        
+        data_list example: [(data1, 'path/to/file1.json'), (data2, 'path/to/file2.json'), ...]
+        """
+        try:
+            def process_batch(batch_data: List[Tuple[dict, str]]) -> List[Result]:
+                results = []
+                for data, file_path in batch_data:
+                    result = self.save_json(data, file_path, serialization=serialization)
+                    results.append(result)
+                return results
+            
             all_results = []
             with ThreadPoolExecutor(max_workers=4) as executor:
                 futures = [executor.submit(process_batch, data_list[i:i+batch_size]) 
@@ -324,7 +380,7 @@ class ExceptionTracker():
             return Result(True, None, None, f"'{frame.filename}', line {frame.lineno}, in {frame.name}")
         except Exception as e:
             print("An error occurred while handling another exception. This may indicate a critical issue.")
-            return Result(False, f"{type(e).__name__} :{str(e)}", "AppCore.ExceptionTracker.get_exception_location, R315-336", traceback.format_exc())
+            return Result(False, f"{type(e).__name__} :{str(e)}", "AppCore.ExceptionTracker.get_exception_location, R341-383", traceback.format_exc())
 
     def get_exception_info(self, error: Exception, user_input: Any=None, params: dict=None) -> Result:
         """
@@ -360,4 +416,4 @@ class ExceptionTracker():
             return Result(True, None, None, error_info)
         except Exception as e:
             print("An error occurred while handling another exception. This may indicate a critical issue.")
-            return Result(False, f"{type(e).__name__} :{str(e)}", "AppCore.ExceptionTracker.get_exception_location, R338-399", traceback.format_exc())
+            return Result(False, f"{type(e).__name__} :{str(e)}", "AppCore.ExceptionTracker.get_exception_location, R385-419", traceback.format_exc())

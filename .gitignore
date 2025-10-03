@@ -4,3 +4,4 @@
 .coverage
 Test/highperf_io_test_results_20251003_020047.json
 Test/highperf_io_test_results_20251003_120547.json
+/MultiTest
