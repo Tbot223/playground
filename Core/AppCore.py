@@ -231,7 +231,7 @@ class FileManager():
                     return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
             return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
         
-    def batch_process_files(self, files: List[str], batch_size: int=10) -> Result:
+    def batch_process_json(self, files: List[str], batch_size: int=10) -> Result:
         """
         Function to process files in batches using multithreading.
         - files: List of file paths to process.
