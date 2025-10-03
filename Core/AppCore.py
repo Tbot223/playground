@@ -10,6 +10,7 @@ from typing import NamedTuple
 from typing import Any, Dict, List, Tuple, Union, Optional
 import platform
 import sys
+from concurrent.futures import ThreadPoolExecutor
 
 # internal modules
 from Core import Result
@@ -110,6 +111,7 @@ class AppCore:
         except Exception as e:
             self._lang_cache = {}  # Initialize cache
             return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
+
 
     def clear_screen(self):
         """
@@ -227,6 +229,57 @@ class FileManager():
                     os.unlink(temp_file_path)
                 except (OSError, Exception) as e:
                     return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
+            return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
+        
+    def batch_process_files(self, files: List[str], batch_size: int=10) -> Result:
+        """
+        Function to process files in batches using multithreading.
+        - files: List of file paths to process.
+        - batch_size: Number of files to process in each batch.
+        """
+        try:
+            def process_batch(batch_files: List[str]) -> List[Result]:
+                results = []
+                for file in batch_files:
+                    result = self.load_json(file).data
+                    results.append(result)
+                return results
+
+            all_results = []
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                futures = [executor.submit(process_batch, files[i:i+batch_size]) 
+                           for i in range(0, len(files), batch_size)]
+                for future in futures:
+                    all_results.extend(future.result())
+            return Result(True, None, None, all_results)
+        except Exception as e:
+            return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
+
+    def batch_process_write_json(self, data_list: List[Tuple[dict, str]], batch_size: int=10, serialization: bool=False) -> Result:
+        """
+        Function to write files in batches using multithreading.
+        - data_list: List of tuples containing (data_dict, file_path).
+        - batch_size: Number of files to write in each batch.
+        - serialization: Whether to serialize JSON with indentation.
+
+        data_list example: [(data1, 'path/to/file1.json'), (data2, 'path/to/file2.json'), ...]
+        """
+        try:
+            def process_batch(batch_data: List[Tuple[dict, str]]) -> List[Result]:
+                results = []
+                for data, file_path in batch_data:
+                    result = self.save_json(data, file_path, serialization=serialization)
+                    results.append(result)
+                return results
+
+            all_results = []
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                futures = [executor.submit(process_batch, data_list[i:i+batch_size]) 
+                           for i in range(0, len(data_list), batch_size)]
+                for future in futures:
+                    all_results.extend(future.result())
+            return Result(True, None, None, all_results)
+        except Exception as e:
             return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
                 
 class ExceptionTracker():
