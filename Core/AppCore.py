@@ -168,7 +168,7 @@ class FileManager():
             print(f"Error loading file from {file_path}: {e}")
             return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
 
-    def save_json(self, data: dict, file_path: str, key: str=None, serialization: bool=False) -> Result:
+    def save_json(self, data: Optional[dict], file_path: str, key: str=None, serialization: bool=False) -> Result:
         """
         Function to save dictionaries as JSON files (Atomic write applied)
         - Only JSON files are supported. Other formats Use Atomic_write.
@@ -178,10 +178,7 @@ class FileManager():
         try:
             # Prepare final data to save
             if key is not None:
-                if os.path.exists(file_path):
-                    cache = self.load_json(file_path)
-                else:
-                    raise FileNotFoundError(f"File '{file_path}' does not exist for updating with key '{key}'.")
+                cache = self.load_json(file_path)
                 if not cache.success:
                     raise ValueError(f"Failed to load existing JSON file: {file_path}")
                 
@@ -232,32 +229,6 @@ class FileManager():
                     return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
             return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
         
-    def batch_process_json(self, files: List[str], batch_size: int=10) -> Result:
-        """
-        Function to process files in batches using multithreading.
-        - files: List of file paths to process.
-        - batch_size: Number of files to process in each batch.
-
-        files example: ['path/to/file1.json', 'path/to/file2.json', ...]
-        """
-        try:
-            def process_batch(batch_files: List[str]) -> List[Result]:
-                results = []
-                for file in batch_files:
-                    result = self.load_json(file).data
-                    results.append(result)
-                return results
-
-            all_results = []
-            with mp.Pool(processes=4) as pool:
-                futures = [pool.apply_async(process_batch, (files[i:i+batch_size],))
-                           for i in range(0, len(files), batch_size)]
-                for future in futures:
-                    all_results.extend(future.get())
-            return Result(True, None, None, all_results)
-        except Exception as e:
-            return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
-        
     def batch_process_json_threaded(self, files: List[str], batch_size: int=10) -> Result:
         """
         Function to process files in batches using multithreading.
@@ -280,33 +251,6 @@ class FileManager():
                            for i in range(0, len(files), batch_size)]
                 for future in futures:
                     all_results.extend(future.result())
-            return Result(True, None, None, all_results)
-        except Exception as e:
-            return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
-
-    def batch_process_write_json(self, data_list: List[Tuple[dict, str]], batch_size: int=10, serialization: bool=False) -> Result:
-        """
-        Function to write files in batches using multithreading.
-        - data_list: List of tuples containing (data_dict, file_path).
-        - batch_size: Number of files to write in each batch.
-        - serialization: Whether to serialize JSON with indentation.
-
-        data_list example: [(data1, 'path/to/file1.json'), (data2, 'path/to/file2.json'), ...]
-        """
-        try:
-            def process_batch(batch_data: List[Tuple[dict, str]]) -> List[Result]:
-                results = []
-                for data, file_path in batch_data:
-                    result = self.save_json(data, file_path, serialization=serialization)
-                    results.append(result)
-                return results
-
-            all_results = []
-            with mp.Pool(processes=4) as pool:
-                futures = [pool.apply_async(process_batch, (data_list[i:i+batch_size],))
-                           for i in range(0, len(data_list), batch_size)]
-                for future in futures:
-                    all_results.extend(future.get())
             return Result(True, None, None, all_results)
         except Exception as e:
             return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
@@ -417,3 +361,15 @@ class ExceptionTracker():
         except Exception as e:
             print("An error occurred while handling another exception. This may indicate a critical issue.")
             return Result(False, f"{type(e).__name__} :{str(e)}", "AppCore.ExceptionTracker.get_exception_location, R385-419", traceback.format_exc())
+        
+
+"""
+example code with multi processing:
+
+all_results = []
+with mp.Pool(processes=4) as pool:
+    futures = [pool.apply_async(process_batch, (data_list[i:i+batch_size],))
+                for i in range(0, len(data_list), batch_size)]
+    for future in futures:
+        all_results.extend(future.get())
+"""

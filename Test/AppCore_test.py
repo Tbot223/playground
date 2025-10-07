@@ -135,5 +135,41 @@ class TestAppCore:
             assert result.success
             assert "ZeroDivisionError" == result.data['error']['type']
 
+class TestEdgeCases:
+    def test_empty_dict_find_keys_by_value(self, setup_module: tuple):
+        core, file_manager, exception_tracker = setup_module
+
+        result = core.find_keys_by_value({}, 1, "equal")
+        assert result.success
+        assert result.data == []
+
+    def test_nonexistent_file_load(self, tmp_path: Path, setup_module: tuple):
+        core, file_manager, exception_tracker = setup_module
+
+        test_file = tmp_path / "nonexistent.txt"
+        result = file_manager.load_file(test_file)
+        assert not result.success
+        assert "FileNotFoundError" in result.error
+
+    def test_invalid_json_load(self, tmp_path: Path, setup_module: tuple):
+        core, file_manager, exception_tracker = setup_module
+
+        test_file = tmp_path / "invalid.json"
+        test_file.write_text('{"key": "value", "jone": {"age": 30, "city": "New York", "list": [1, 2, 3, 4, 5]}')  # Missing closing brace
+        result = file_manager.load_json(test_file)
+        print(result)
+        assert not result.success
+        assert "JSONDecodeError" in result.error
+
+    def test_save_json_not_existing_file(self, tmp_path: Path, setup_module: tuple):
+        core, file_manager, exception_tracker = setup_module
+
+        test_file = tmp_path / "newfile.json"
+        result = file_manager.save_json("new_value", test_file, key="new_key")
+        assert not result.success
+        assert "ValueError" in result.error
+
+    
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
