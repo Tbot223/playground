@@ -12,6 +12,7 @@ import platform
 import sys
 from concurrent.futures import ThreadPoolExecutor
 import multiprocessing as mp
+from pathlib import Path
 
 # internal modules
 from Core import Result
@@ -32,15 +33,15 @@ class AppCore:
     3. Screen Clearing: Provides platform-independent screen clearing functionality.
         - clear_screen: Clears the screen.
     """
-    SCREEN_CLEAR_LINES = 50  # Magic number as constant
 
-    def __init__(self):
-        self.parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    def __init__(self, screen_clear_lines: int=50, parent_dir: str=None):
+        self.parent_dir = parent_dir or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         os.makedirs(f"{self.parent_dir}/language", exist_ok=True)
         self.lang = [os.path.splitext(file)[0] for file in os.listdir(f"{self.parent_dir}/language")]
         self._lang_cache = {}  # 언어 캐시 딕셔너리
         self.FileManager = FileManager()
         self.exception_tracker = ExceptionTracker()
+        self.SCREEN_CLEAR_LINES = screen_clear_lines if screen_clear_lines > 0 else 50
 
     def find_keys_by_value(self, json_data: Dict, threshold: Any, comparison_type: str) -> Result:
         """
@@ -58,11 +59,11 @@ class AppCore:
             comparison_type = comparison_type.lower()
 
             if not isinstance(json_data, dict): # Check json_data type
-                raise ValueError("json_data must be a dictionary.")
+                raise ValueError("json_data must be a dictionary. it is not supported.")
             if isinstance(threshold, (dict, list, tuple)): # Check threshold type
                 raise ValueError("Threshold of type dict, list, or tuple is not supported.")
             if comparison_type not in ["above", "below", "equal"]: # Check comparison type
-                raise ValueError("comparison_type must be 'above', 'below', or 'equal'.")
+                raise ValueError("Invalid comparison type, comparison_type must be 'above', 'below', or 'equal'.")
 
             compare_ops = {
                 "above": lambda v: v > threshold, # '>' operator
@@ -71,11 +72,13 @@ class AppCore:
             }
 
             for key, value in json_data.items(): # Iterate through dictionary
-                if isinstance(threshold, str) and not isinstance(value, str):
+                threshold_is_str = isinstance(threshold, str)
+                value_is_str = isinstance(value, str)
+                if threshold_is_str and not value_is_str and comparison_type != "equal":
                     continue
-                if not isinstance(threshold, str) and isinstance(value, str):
+                if not threshold_is_str and value_is_str and comparison_type != "equal":
                     continue
-                if isinstance(value, (dict, list, tuple)): # If value is dict, list, tuple
+                if isinstance(value, (dict, list, tuple)):
                     continue
                 if compare_ops[comparison_type](value): # Perform comparison
                     matching_keys.append(key)
@@ -95,7 +98,7 @@ class AppCore:
         """
         try:
             if lang not in self.lang: # Check language
-                raise ValueError(f"Language '{lang}' not supported. Available languages: {self.lang}")
+                raise ValueError(f"Language '{lang}' is not supported. Available languages: {self.lang}")
 
             # Check cache
             if lang not in self._lang_cache:
@@ -238,13 +241,23 @@ class FileManager():
         files example: ['path/to/file1.json', 'path/to/file2.json', ...]
         """
         try:
-            def process_batch(batch_files: List[str]) -> List[Result]:
+            def process_batch(batch_files: List[str]) -> List[dict]:
                 results = []
                 for file in batch_files:
                     result = self.load_json(file).data
                     results.append(result)
                 return results
             
+            if files is None or len(files) == 0:
+                raise ValueError("files list is empty or None.")
+            # Validate files list structure
+            if not isinstance(files, list) or not all(isinstance(file, (str, Path)) for file in files): 
+                raise ValueError("files must be a list of strings or Path objects.")
+            # Adjust batch_size if necessary
+            if batch_size <= 0:
+                batch_size = 10
+            if batch_size > len(files):
+                batch_size = len(files)
             all_results = []
             with ThreadPoolExecutor(max_workers=4) as executor:
                 futures = [executor.submit(process_batch, files[i:i+batch_size]) 
@@ -255,23 +268,33 @@ class FileManager():
         except Exception as e:
             return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
         
-    def batch_process_write_json_threaded(self, data_list: List[Tuple[dict, str]], batch_size: int=10, serialization: bool=False) -> Result:
+    def batch_process_write_json_threaded(self, data_list: List[Tuple[dict, str, bool]], batch_size: int=10) -> Result:
         """
         Function to write files in batches using multithreading.
-        - data_list: List of tuples containing (data_dict, file_path).
+        - data_list: List of tuples containing (data_dict, file_path, serialization).
         - batch_size: Number of files to write in each batch.
         - serialization: Whether to serialize JSON with indentation.
-        
-        data_list example: [(data1, 'path/to/file1.json'), (data2, 'path/to/file2.json'), ...]
+
+        data_list example: [(data1, 'path/to/file1.json', True), (data2, 'path/to/file2.json', False), ...]
         """
         try:
-            def process_batch(batch_data: List[Tuple[dict, str]]) -> List[Result]:
+            def process_batch(batch_data: List[Tuple[dict, Union[str, Path], bool]]) -> Result:
                 results = []
-                for data, file_path in batch_data:
+                for data, file_path, serialization in batch_data:
                     result = self.save_json(data, file_path, serialization=serialization)
                     results.append(result)
                 return results
             
+            if data_list is None or len(data_list) == 0:
+                raise ValueError("data_list is empty or None.")
+            # Validate data_list structure
+            if not isinstance(data_list, list) or not all(isinstance(item, tuple) and len(item) == 3 and isinstance(item[0], dict) and isinstance(item[1], (str, Path)) and isinstance(item[2], bool) for item in data_list): 
+                raise ValueError("data_list must be a list of tuples in the form (dict, str, bool).")
+            # Adjust batch_size if necessary
+            if batch_size <= 0:
+                batch_size = 10
+            if batch_size > len(data_list):
+                batch_size = len(data_list)
             all_results = []
             with ThreadPoolExecutor(max_workers=4) as executor:
                 futures = [executor.submit(process_batch, data_list[i:i+batch_size]) 

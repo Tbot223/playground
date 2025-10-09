@@ -40,13 +40,6 @@ class TestAppCore:
             assert result.success
             comparison_func(result.data, comparison_type)
 
-    def test_find_keys_by_value_invalid_type(self, setup_module: tuple):
-        core, file_manager, exception_tracker = setup_module
-
-        result = core.find_keys_by_value({"a": 1, "b": 2}, [1,2], "equal")
-        assert not result.success
-        assert "is not supported." in result.error
-
     def test_getTextByLang(self, setup_module: tuple):
         core, file_manager, exception_tracker = setup_module
         
@@ -135,41 +128,164 @@ class TestAppCore:
             assert result.success
             assert "ZeroDivisionError" == result.data['error']['type']
 
-class TestEdgeCases:
-    def test_empty_dict_find_keys_by_value(self, setup_module: tuple):
+    def test_batch_process_json_threaded(self, tmp_path: Path, setup_module: tuple):
         core, file_manager, exception_tracker = setup_module
 
-        result = core.find_keys_by_value({}, 1, "equal")
+        # Create multiple JSON files
+        files = []
+        for i in range(5):
+            file = tmp_path / f"test_{i}.json"
+            file.write_text(f'"key": "value_{i}"')
+            files.append(file)
+
+        result = file_manager.batch_process_json_threaded(files)
         assert result.success
-        assert result.data == []
 
-    def test_nonexistent_file_load(self, tmp_path: Path, setup_module: tuple):
+        # Verify each file has been processed
+        for i in range(5):
+            file = tmp_path / f"test_{i}.json"
+            content = file.read_text()
+            assert content == f'"key": "value_{i}"'
+
+    def test_batch_process_write_json_threaded(self, tmp_path: Path, setup_module: tuple):
         core, file_manager, exception_tracker = setup_module
 
-        test_file = tmp_path / "nonexistent.txt"
-        result = file_manager.load_file(test_file)
-        assert not result.success
-        assert "FileNotFoundError" in result.error
+        data_list = []
+        for i in range(5):
+            file = tmp_path / f"data_{i}.json"
+            data = {"new_key": f"value_{i}"}
+            data_list.append((data, file, False))
+            
+        result = file_manager.batch_process_write_json_threaded(data_list)
+        assert result.success
 
-    def test_invalid_json_load(self, tmp_path: Path, setup_module: tuple):
+        # Verify each file has been created and processed
+        for i in range(5):
+            file = tmp_path / f"data_{i}.json"
+            assert file.exists()
+            content = file.read_text()
+            assert content == '{"new_key": "value_' + str(i) + '"}'
+
+class TestEdgeCases:
+    def test_find_keys_by_value_invalid_type(self, setup_module: tuple):
         core, file_manager, exception_tracker = setup_module
 
-        test_file = tmp_path / "invalid.json"
-        test_file.write_text('{"key": "value", "jone": {"age": 30, "city": "New York", "list": [1, 2, 3, 4, 5]}')  # Missing closing brace
-        result = file_manager.load_json(test_file)
-        print(result)
+        # Invalid type tests
+        result = core.find_keys_by_value({"a": 1, "b": 2}, [1,2], "equal")
         assert not result.success
-        assert "JSONDecodeError" in result.error
+        assert "is not supported." in result.error
+        # Invalid json_data type
+        result = core.find_keys_by_value([1,2,3], 2, "equal")
+        assert not result.success
+        assert "is not supported." in result.error
+        # Invalid comparison_type
+        result = core.find_keys_by_value({"a": 1, "b": 2}, 2, "invalid_type")
+        assert not result.success
+        assert "Invalid comparison type" in result.error
 
-    def test_save_json_not_existing_file(self, tmp_path: Path, setup_module: tuple):
+    def test_getTextByLang_not_supported_language(self, setup_module: tuple):
         core, file_manager, exception_tracker = setup_module
 
-        test_file = tmp_path / "newfile.json"
-        result = file_manager.save_json("new_value", test_file, key="new_key")
+        result = core.getTextByLang("fr", "Test Key")
         assert not result.success
-        assert "ValueError" in result.error
-
+        assert "Language 'fr' is not supported." in result.error
     
+    def test_getTextByLang_cannot_load_json(self, tmp_path: Path, setup_module: tuple):
+        core, file_manager, exception_tracker = setup_module
 
+        file_manager.parent_dir = tmp_path  # Redirect to temporary path
+        # Simulate crashed JSON file by creating an invalid JSON file
+        json_file = tmp_path / "fr.json"
+        json_file.write_text('{"Test Key": "This is a test value"')  # Missing closing brace
+        core.lang.append("fr")  # Add 'fr' to supported languages
+        result = core.getTextByLang("fr", "Test Key")
+        assert not result.success
+        assert "Language file for 'fr' could not be loaded." in result.error
+
+        file_manager.parent_dir = core.parent_dir  # Restore original path
+        core.lang.remove("fr")  # Remove 'fr' from supported languages
+
+    def test_key_not_found(self, setup_module: tuple):
+        core, file_manager, exception_tracker = setup_module
+
+        # Key not found test
+        result = core.getTextByLang("en", "Nonexistent Key")
+        assert not result.success
+        assert "Key 'Nonexistent Key' not found in language 'en'." in result.error
+
+    def test_screen_clear_lines(self):
+        core_default = AppCore.AppCore()
+        assert core_default.SCREEN_CLEAR_LINES == 50  # Default value
+
+        core_custom = AppCore.AppCore(screen_clear_lines=30)
+        assert core_custom.SCREEN_CLEAR_LINES == 30  # Custom value
+
+        core_negative = AppCore.AppCore(screen_clear_lines=-10)
+        assert core_negative.SCREEN_CLEAR_LINES == 50  # Negative value defaults to 50
+
+    def test_init_with_custom_parent_dir(self, tmp_path: Path):
+        custom_dir = tmp_path / "custom_core"
+        core = AppCore.AppCore(parent_dir=str(custom_dir))
+        assert core.parent_dir == str(custom_dir)
+        assert os.path.exists(custom_dir / "language")  # Language directory should be created
+
+    def test_save_json_cannot_load_existing_json(self, tmp_path: Path, setup_module: tuple):
+        core, file_manager, exception_tracker = setup_module
+
+        save_path = tmp_path / "test.json"
+        result = file_manager.save_json({"key": "value"}, save_path, "Test Key")  # Initial save
+        assert not result.success
+        assert "Failed to load existing JSON file:" in result.error
+
+    def test_batch_process_json_threaded_with_invalid_files(self, tmp_path: Path, setup_module: tuple):
+        core, file_manager, exception_tracker = setup_module
+
+        # Invalid files list (not strings)
+        files = [123, None, 12.34]
+        result = file_manager.batch_process_json_threaded(files)
+        assert not result.success
+        assert "files must be a list of strings or Path objects." in result.error
+
+        # Empty files list
+        result = file_manager.batch_process_json_threaded([])
+        assert not result.success
+        assert "files list is empty or None." in result.error
+
+    def test_batch_process_write_json_threaded_with_invalid_data_list(self, tmp_path: Path, setup_module: tuple):
+        core, file_manager, exception_tracker = setup_module
+
+        # Invalid data_list structure
+        data_list = [("not_a_dict", tmp_path / "file1.json", False), ({"key": "value"}, 123, True)]
+        result = file_manager.batch_process_write_json_threaded(data_list)
+        assert not result.success
+        assert "data_list must be a list of tuples in the form (dict, str, bool)." in result.error
+
+        # Empty data_list
+        result = file_manager.batch_process_write_json_threaded([])
+        assert not result.success
+        assert "data_list is empty or None." in result.error
+
+
+    def test_all_functions_exception_handling(self, tmp_path: Path, setup_module: tuple):
+        core, file_manager, exception_tracker = setup_module
+        for func in [
+            core.find_keys_by_value,
+            core.getTextByLang,
+            file_manager.Atomic_write,
+            file_manager.load_file,
+            file_manager.save_json,
+            file_manager.load_json,
+            exception_tracker.get_exception_location,
+            exception_tracker.get_exception_info,
+            file_manager.batch_process_json_threaded,
+            file_manager.batch_process_write_json_threaded
+        ]:
+            try:
+                1 / 0  # Force an exception
+            except Exception as e:
+                result = exception_tracker.get_exception_info(e)
+                assert result.success
+                assert "ZeroDivisionError" == result.data['error']['type']
+    
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

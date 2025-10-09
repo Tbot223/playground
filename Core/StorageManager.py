@@ -56,7 +56,7 @@ class StorageManager:
     11. backup_save(save_id)
         - Not needed currently, implement later if needed
     """
-    def __init__(self, parent_dir: str = "."):
+    def __init__(self, parent_dir: str = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))):
         self.core = AppCore.AppCore()
         self.FileManager = AppCore.FileManager()
         self.exception_tracker = AppCore.ExceptionTracker()
