@@ -15,7 +15,7 @@ import multiprocessing as mp
 from pathlib import Path
 
 # internal modules
-from Core import Result
+from Core import Result, log
 
 class AppCore:
     """
@@ -41,6 +41,7 @@ class AppCore:
         self._lang_cache = {}  # 언어 캐시 딕셔너리
         self.FileManager = FileManager()
         self.exception_tracker = ExceptionTracker()
+        self.logger = log.LoggerManager(__name__, base_dir=f"{self.parent_dir}/logs")
         self.SCREEN_CLEAR_LINES = screen_clear_lines if screen_clear_lines > 0 else 50
 
     def find_keys_by_value(self, json_data: Dict, threshold: Any, comparison_type: str) -> Result:
@@ -147,7 +148,9 @@ class FileManager():
     2. Atomic Write: Uses temporary files to safely save files and prevent data corruption during file saving.
     """
     def __init__(self):
+        self.parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.exception_tracker = ExceptionTracker()
+        self.logger = log.LoggerManager(name=__name__, base_dir=f"{self.parent_dir}/logs")
 
     def load_json(self, file_path: str) -> Result:
         """
@@ -265,7 +268,10 @@ class FileManager():
                 futures = [executor.submit(process_batch, files[i:i+batch_size]) 
                            for i in range(0, len(files), batch_size)]
                 for future in futures:
-                    all_results.extend(future.result())
+                    try:
+                        all_results.extend(future.result())
+                    except Exception as e:
+                        self.logger.error(f"Error processing batch: {e}")
             return Result(True, None, None, all_results)
         except Exception as e:
             return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)

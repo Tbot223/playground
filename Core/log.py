@@ -2,6 +2,7 @@
 import logging
 import time
 import os
+from pathlib import Path
 
 # internal modules
 from Core import AppCore, Result
@@ -14,12 +15,18 @@ class LoggerManager:
 
     Output logs to log files and console
     """
-    def __init__(self, name="test", base_dir="/logs"):
+    def __init__(self, name="test", base_dir="<your_base_dir>/logs | ManualPath", ):
         """
         Initialize logger manager
         """
 
         # 로거를 얻기 전에 이름 및 기타 속성을 저장
+        if base_dir == "<your_base_dir>/logs | ManualPath":
+            base_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "/logs")
+        try:
+            Path(base_dir).mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            print(f"Error creating log directory: {e}")
         self.name = name
         self.base_dir = base_dir
         self._setup_logger()
