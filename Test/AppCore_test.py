@@ -165,6 +165,15 @@ class TestAppCore:
             assert file.exists()
             content = file.read_text()
             assert content == '{"new_key": "value_' + str(i) + '"}'
+            
+    def load_file(self, tmp_path: Path, setup_module: tuple):
+        core, file_manager, exception_tracker = setup_module
+
+        test_file = tmp_path / "test.txt"
+        test_file.write_text("Sample Content")
+        result = file_manager.load_file(test_file)
+        assert result.success
+        assert result.data == "Sample Content"
 
 class TestEdgeCases:
     def test_find_keys_by_value_invalid_type(self, setup_module: tuple):
@@ -266,26 +275,34 @@ class TestEdgeCases:
         assert "data_list is empty or None." in result.error
 
 
-    def test_all_functions_exception_handling(self, tmp_path: Path, setup_module: tuple):
+    def test_Atomic_write_with_invalid_path(self, setup_module: tuple):
         core, file_manager, exception_tracker = setup_module
-        for func in [
-            core.find_keys_by_value,
-            core.getTextByLang,
-            file_manager.Atomic_write,
-            file_manager.load_file,
-            file_manager.save_json,
-            file_manager.load_json,
-            exception_tracker.get_exception_location,
-            exception_tracker.get_exception_info,
-            file_manager.batch_process_json_threaded,
-            file_manager.batch_process_write_json_threaded
-        ]:
-            try:
-                1 / 0  # Force an exception
-            except Exception as e:
-                result = exception_tracker.get_exception_info(e)
-                assert result.success
-                assert "ZeroDivisionError" == result.data['error']['type']
-    
+
+        # Invalid path (e.g., directory instead of file)
+        result = file_manager.Atomic_write("Content", 0.42)
+        assert not result.success
+        assert "TypeError" in result.error
+
+    def test_Atomic_write_with_empty_data(self, tmp_path: Path, setup_module: tuple):
+        core, file_manager, exception_tracker = setup_module
+
+        test_file = tmp_path / "test.txt"
+        result = file_manager.Atomic_write("", test_file)
+        assert not result.success
+        assert "Data to write is empty or None." in result.error
+
+    def test_find_keys_by_value_threshold_type(self, setup_module: tuple):
+        core, file_manager, exception_tracker = setup_module
+
+        # Threshold as string
+        result = core.find_keys_by_value({"a": 1, "b": 2, "c": (2, 3), "d": {"a": 1}, "e":[2, 3]}, "2", "equal")
+        assert result.success
+        assert result.data == []
+        
+        # Value type mismatch
+        result = core.find_keys_by_value({"a": 1, "b": "2", "c": 3}, 2.0, "equal")
+        assert result.success
+        assert result.data == []
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

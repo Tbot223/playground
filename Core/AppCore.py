@@ -198,7 +198,7 @@ class FileManager():
         except Exception as e:
             return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
                 
-    def Atomic_write(self, data: str, file_path: str) -> Result:
+    def Atomic_write(self, data: Any, file_path: Union[str, Path]) -> Result:
         """
         Function to perform atomic write
         """
@@ -207,6 +207,8 @@ class FileManager():
         try:
             # Create directory if it doesn't exist
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            if not data:
+                raise ValueError("Data to write is empty or None.")
 
             # Atomic write: write to temporary file first
             with tempfile.NamedTemporaryFile(
@@ -214,7 +216,7 @@ class FileManager():
                 delete=False, 
                 encoding='utf-8', 
                 dir=os.path.dirname(file_path), 
-                prefix=os.path.basename(file_path) + '.tmp.'
+                prefix=os.path.basename(str(file_path)) + '.tmp.'
             ) as tmp:
                 tmp.write(data)
                 temp_file_path = tmp.name
