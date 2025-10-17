@@ -9,19 +9,20 @@ class DebugTool:
 
     Provides debugging utilities
     """
-    def __init__(self):
+    def __init__(self, logger: log.LoggerManager.get_logger):
         """
         Initialize debug tool
         """
         self.exception_tracker = AppCore.ExceptionTracker()
+        self.logger = logger
 
-    def debug_log(self, logger: log.LoggerManager, message: str, isDebug: bool):
+    def debug_log(self, message: str, isDebug: bool):
         """
         (Debug) Function to log debug messages if isDebug is True
         """
         try:
             if isDebug:
-                logger.get_logger().debug(message)
+                self.logger.debug(message)
                 return Result(True, None, None, None)
             return Result(True, None, "Debug is disabled", None)
         except Exception as e:
