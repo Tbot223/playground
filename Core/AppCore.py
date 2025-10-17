@@ -15,7 +15,7 @@ import multiprocessing as mp
 from pathlib import Path
 
 # internal modules
-from Core import Result, log
+from Core import Result, log, DebugTool
 
 class AppCore:
     """
@@ -34,15 +34,28 @@ class AppCore:
         - clear_screen: Clears the screen.
     """
 
-    def __init__(self, screen_clear_lines: int=50, parent_dir: str=None):
+    def __init__(self, screen_clear_lines: int=50, parent_dir: str=None, isTest: bool=False, isDebug: bool=False):
+        """
+        Initialize AppCore
+        """
+        # Set directory
         self.parent_dir = parent_dir or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self.LOG_DIR = f"{self.parent_dir}/logs"
+        self.LANGUAGE_DIR = f"{self.parent_dir}/language"
         os.makedirs(f"{self.parent_dir}/language", exist_ok=True)
-        self.lang = [os.path.splitext(file)[0] for file in os.listdir(f"{self.parent_dir}/language")]
-        self._lang_cache = {}  # 언어 캐시 딕셔너리
+
+        # Initialize Classes
         self.FileManager = FileManager()
         self.exception_tracker = ExceptionTracker()
-        self.logger = log.LoggerManager(__name__, base_dir=f"{self.parent_dir}/logs")
+        self.logger = log.LoggerManager(name=__name__, base_dir=self.LOG_DIR)
+        self.debug_tool = DebugTool.DebugTool()
+
+        # Set variables
         self.SCREEN_CLEAR_LINES = screen_clear_lines if screen_clear_lines > 0 else 50
+        self._lang_cache = {}
+        self.lang = [os.path.splitext(file)[0] for file in os.listdir(self.LANGUAGE_DIR) if file.endswith('.json')]
+        self.isTest = isTest
+        self.isDebug = isDebug
 
     def find_keys_by_value(self, json_data: Dict, threshold: Any, comparison_type: str) -> Result:
         """
@@ -147,10 +160,12 @@ class FileManager():
 
     2. Atomic Write: Uses temporary files to safely save files and prevent data corruption during file saving.
     """
-    def __init__(self):
+    def __init__(self, isTest: bool = False, isDebug: bool = False):
         self.parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.exception_tracker = ExceptionTracker()
         self.logger = log.LoggerManager(name=__name__, base_dir=f"{self.parent_dir}/logs")
+        self.isTest = isTest
+        self.isDebug = isDebug
 
     def load_json(self, file_path: str) -> Result:
         """

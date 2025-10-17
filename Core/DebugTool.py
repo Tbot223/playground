@@ -1,0 +1,29 @@
+# external modules
+
+# internal modules
+from Core import AppCore, Result, log
+
+class DebugTool:
+    """
+    Debug tool class
+
+    Provides debugging utilities
+    """
+    def __init__(self):
+        """
+        Initialize debug tool
+        """
+        self.exception_tracker = AppCore.ExceptionTracker()
+
+    def debug_log(self, logger: log.LoggerManager, message: str, isDebug: bool):
+        """
+        (Debug) Function to log debug messages if isDebug is True
+        """
+        try:
+            if isDebug:
+                logger.get_logger().debug(message)
+                return Result(True, None, None, None)
+            return Result(True, None, "Debug is disabled", None)
+        except Exception as e:
+            print(f"Error in debug_log function: {e}")
+            return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
