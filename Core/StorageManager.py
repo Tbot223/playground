@@ -9,6 +9,7 @@ from pathlib import Path
 
 # internal modules
 from Core import Result, AppCore
+from Core.Exception import ExceptionTracker
 
 class StorageManager:
     """
@@ -59,7 +60,7 @@ class StorageManager:
     def __init__(self, parent_dir: str = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))):
         self.core = AppCore.AppCore()
         self.FileManager = AppCore.FileManager()
-        self.exception_tracker = AppCore.ExceptionTracker()
+        self.exception_tracker = ExceptionTracker()
         self.parent_dir = parent_dir
         self.base_dir = f"{self.parent_dir}/saves"
         self.backup_dir = f"{self.parent_dir}/backup"

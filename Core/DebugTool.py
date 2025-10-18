@@ -3,7 +3,8 @@ import os
 from pathlib import Path
 
 # internal modules
-from Core import AppCore, Result, log
+from Core import Result, log
+from Core.Exception import ExceptionTracker
 
 class DebugTool:
     """
@@ -18,7 +19,7 @@ class DebugTool:
         Args:
             logger: LoggerManager instance for logging
         """
-        self.exception_tracker = AppCore.ExceptionTracker()
+        self.exception_tracker = ExceptionTracker()
         self.LoggerManager = log.LoggerManager(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs"))
         if logger is None:
             print("No logger provided, initializing default LoggerManager.")

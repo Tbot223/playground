@@ -16,6 +16,11 @@ from pathlib import Path
 
 # internal modules
 from Core import Result, log, DebugTool
+from Core.Exception import ExceptionTracker
+
+# Global Variables
+LOG_DIR = f"{Path(__file__).resolve().parent}/logs"
+LOGGER_MANAGER = log.LoggerManager(base_dir=LOG_DIR, second_log_dir="Core")
 
 class AppCore:
     """
@@ -41,16 +46,14 @@ class AppCore:
         print("Initializing AppCore...")
         # Set directory
         self._PARENT_DIR = parent_dir or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        self.LOG_DIR = f"{self._PARENT_DIR}/logs"
         self.LANGUAGE_DIR = f"{self._PARENT_DIR}/language"
         os.makedirs(self.LANGUAGE_DIR, exist_ok=True)
 
         # Initialize Classes
         self._FileManager = FileManager()
         self._exception_tracker = ExceptionTracker()
-        self._logger_manager = log.LoggerManager(base_dir=self.LOG_DIR, second_log_dir="Core")
-        self._logger_manager.Make_logger("AppCore")
-        self._logger = self._logger_manager.get_logger("AppCore")
+        LOGGER_MANAGER.Make_logger("AppCore")
+        self._logger = LOGGER_MANAGER.get_logger("AppCore")
         self._debug_tool = DebugTool.DebugTool(logger=self._logger)
 
         # Set variables
@@ -173,7 +176,8 @@ class FileManager():
     def __init__(self, isTest: bool = False, isDebug: bool = False):
         self._PARENT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self._exception_tracker = ExceptionTracker()
-        self._logger = log.LoggerManager()
+        LOGGER_MANAGER.Make_logger("FileManager")
+        self._logger = LOGGER_MANAGER.get_logger("FileManager")
         self.isTest = isTest
         self.isDebug = isDebug
 
@@ -337,87 +341,6 @@ class FileManager():
             return Result(True, None, None, all_results)
         except Exception as e:
             return Result(False, f"{type(e).__name__} :{str(e)}", self._exception_tracker.get_exception_location(e).data, self._exception_tracker.get_exception_info(e).data)
-                
-class ExceptionTracker():
-    """
-    The ExceptionTracker class provides functionality to track location information when exceptions occur and return related information.
-    
-    1. Exception Location Tracking: Provides functionality to track where exceptions occur and return related information.
-        - get_exception_location: Returns the location where the exception occurred.
-
-    2. Exception Information Tracking: Provides functionality to track exception information and return related information.
-        - get_exception_info: Returns information about the exception.
-    """
-
-    def __init__(self):
-        # Cache system information
-        # Safely get current working directory
-        try:
-            cwd = os.getcwd()
-        except Exception:
-            cwd = "<Permission Denied or Unavailable>"
-
-        self._system_info = {
-            "OS": platform.system(),
-            "OS_version": platform.version(),
-            "Release": platform.release(),
-            "Architecture": platform.machine(),
-            "Processor": platform.processor(),
-            "Python_Version": platform.python_version(),
-            "Python_Executable": sys.executable,
-            "Current_Working_Directory": cwd
-        }
-
-    def get_exception_location(self, error: Exception) -> Result:
-        """
-        Function to track where exceptions occurred and return related information
-        - Return information is included as a string in the data of the Result object.
-        - Format (str): '{file}', line {line}, in {function}'
-        """
-        try:
-            tb = traceback.extract_tb(error.__traceback__)
-            frame = tb[-1]  # Most recent frame
-            return Result(True, None, None, f"'{frame.filename}', line {frame.lineno}, in {frame.name}")
-        except Exception as e:
-            print("An error occurred while handling another exception. This may indicate a critical issue.")
-            return Result(False, f"{type(e).__name__} :{str(e)}", "AppCore.ExceptionTracker.get_exception_location, R341-383", traceback.format_exc())
-
-    def get_exception_info(self, error: Exception, user_input: Any=None, params: dict=None) -> Result:
-        """
-        Function to track exception information and return related information
-        
-        The error data dict includes traceback, location information, occurrence time, input context, etc.
-        
-        - error_info (dict):
-            See Readme.md
-        """
-        try:
-            tb = traceback.extract_tb(error.__traceback__)
-            frame = tb[-1]  # Most recent frame
-            error_info = {
-                "success": False,
-                "error":{
-                    "type": type(error).__name__ if error else "UnknownError", 
-                    "message": str(error) if error else "No exception information available"
-                },
-                "location": {
-                    "file": frame.filename if frame else "Unknown",
-                    "line": frame.lineno if frame else -1,
-                    "function": frame.name if frame else "Unknown"
-                },
-                "timestamp": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
-                "input_context": {
-                    "user_input": user_input,
-                    "params": params
-                },
-                "traceback": traceback.format_exc(),
-                "computer_info": self._system_info
-            }
-            return Result(True, None, None, error_info)
-        except Exception as e:
-            print("An error occurred while handling another exception. This may indicate a critical issue.")
-            return Result(False, f"{type(e).__name__} :{str(e)}", "AppCore.ExceptionTracker.get_exception_location, R385-419", traceback.format_exc())
-        
 
 """
 example code with multi processing:

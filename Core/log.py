@@ -6,9 +6,8 @@ from pathlib import Path
 from typing import Union
 
 # internal modules
-from Core import AppCore, Result
-
-ExceptionTracker = AppCore.ExceptionTracker()
+from Core import Result
+from Core.Exception import ExceptionTracker
 
 class LoggerManager:
     """
@@ -16,18 +15,20 @@ class LoggerManager:
 
     Output logs to log files and console
     """
-    def __init__(self, base_dir: Union[str, Path]="<your_base_dir>/logs | ManualPath", second_log_dir: str="default"):
+    def __init__(self, base_dir: Union[str, Path]=None, second_log_dir: str="default"):
         """
         Initialize logger manager
+
+        Args:
+            base_dir (Union[str, Path]): Base directory for logs. If None, defaults to '<your_base_dir>/logs'.
+            second_log_dir (str): Subdirectory name within the base log directory.
         """
         self._loggers = {}
-        self.exception_tracker = AppCore.ExceptionTracker()
+        self.exception_tracker = ExceptionTracker()
         # 로그 디렉토리 생성
-        if isinstance(base_dir, str) and base_dir.startswith("<your_base_dir>"):
+        if base_dir is None:
             base_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "/logs")
             os.makedirs(base_dir, exist_ok=True)
-        if not os.path.exists(base_dir):
-            raise ValueError(f"Provided base_dir does not exist(It looks like the directory creation failed.): {base_dir}")
         self._base_dir = base_dir
         self._log_filename = None
         self.second_log_dir = second_log_dir
