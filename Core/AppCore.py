@@ -38,24 +38,29 @@ class AppCore:
         """
         Initialize AppCore
         """
+        print("Initializing AppCore...")
         # Set directory
-        self.parent_dir = parent_dir or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        self.LOG_DIR = f"{self.parent_dir}/logs"
-        self.LANGUAGE_DIR = f"{self.parent_dir}/language"
-        os.makedirs(f"{self.parent_dir}/language", exist_ok=True)
+        self._PARENT_DIR = parent_dir or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self.LOG_DIR = f"{self._PARENT_DIR}/logs"
+        self.LANGUAGE_DIR = f"{self._PARENT_DIR}/language"
+        os.makedirs(self.LANGUAGE_DIR, exist_ok=True)
 
         # Initialize Classes
-        self.FileManager = FileManager()
-        self.exception_tracker = ExceptionTracker()
-        self.logger = log.LoggerManager(name=__name__, base_dir=self.LOG_DIR)
-        self.debug_tool = DebugTool.DebugTool()
+        self._FileManager = FileManager()
+        self._exception_tracker = ExceptionTracker()
+        self._logger_manager = log.LoggerManager(base_dir=self.LOG_DIR, second_log_dir="Core")
+        self._logger_manager.Make_logger("AppCore")
+        self._logger = self._logger_manager.get_logger("AppCore")
+        self._debug_tool = DebugTool.DebugTool(logger=self._logger)
 
         # Set variables
         self.SCREEN_CLEAR_LINES = screen_clear_lines if screen_clear_lines > 0 else 50
+        self._LANG = [os.path.splitext(file)[0] for file in os.listdir(self.LANGUAGE_DIR) if file.endswith('.json')]
         self._lang_cache = {}
-        self.lang = [os.path.splitext(file)[0] for file in os.listdir(self.LANGUAGE_DIR) if file.endswith('.json')]
         self.isTest = isTest
         self.isDebug = isDebug
+
+        self._logger.info("AppCore initialized successfully.")
 
     def find_keys_by_value(self, json_data: Dict, threshold: Any, comparison_type: str) -> Result:
         """
@@ -89,18 +94,23 @@ class AppCore:
                 threshold_is_str = isinstance(threshold, str)
                 value_is_str = isinstance(value, str)
                 if threshold_is_str and not value_is_str and comparison_type != "equal":
+                    self._debug_tool.debug_log(f"Skipping key '{key}' due to type mismatch between threshold and value.", self.isDebug)
                     continue
                 if not threshold_is_str and value_is_str and comparison_type != "equal":
+                    self._debug_tool.debug_log(f"Skipping key '{key}' due to type mismatch between threshold and value.", self.isDebug)
                     continue
                 if isinstance(value, (dict, list, tuple)):
+                    self._debug_tool.debug_log(f"Skipping key '{key}' because its value is of unsupported type ({type(value).__name__}).", self.isDebug)
                     continue
                 if compare_ops[comparison_type](value): # Perform comparison
+                    self._debug_tool.debug_log(f"Key '{key}' matches the condition: {value} {comparison_type} {threshold}.", self.isDebug)
                     matching_keys.append(key)
 
+            self._debug_tool.debug_log(f"find_keys_by_value completed. Matching keys: {matching_keys}", self.isDebug)
             return Result(True, None, None, matching_keys)
             
         except Exception as e:
-            return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
+            return Result(False, f"{type(e).__name__} :{str(e)}", self._exception_tracker.get_exception_location(e).data, self._exception_tracker.get_exception_info(e).data)
 
     def getTextByLang(self, lang: str, key: str) -> Result:
         """
@@ -111,12 +121,12 @@ class AppCore:
         Cache initialization and exception handling on failure.
         """
         try:
-            if lang not in self.lang: # Check language
-                raise ValueError(f"Language '{lang}' is not supported. Available languages: {self.lang}")
+            if lang not in self._LANG: # Check language
+                raise ValueError(f"Language '{lang}' is not supported. Available languages: {self._LANG}")
 
             # Check cache
             if lang not in self._lang_cache:
-                cache = self.FileManager.load_json(f"{self.parent_dir}/language/{lang}.json")
+                cache = self._FileManager.load_json(f"{self._PARENT_DIR}/language/{lang}.json")
                 if not cache.success:
                     raise FileNotFoundError(f"Language file for '{lang}' could not be loaded.")
                 self._lang_cache[lang] = cache.data
@@ -128,7 +138,7 @@ class AppCore:
                 raise KeyError(f"Key '{key}' not found in language '{lang}'. Available keys: {list(self._lang_cache[lang].keys())}")
         except Exception as e:
             self._lang_cache = {}  # Initialize cache
-            return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
+            return Result(False, f"{type(e).__name__} :{str(e)}", self._exception_tracker.get_exception_location(e).data, self._exception_tracker.get_exception_info(e).data)
 
 
     def clear_screen(self):
@@ -161,9 +171,9 @@ class FileManager():
     2. Atomic Write: Uses temporary files to safely save files and prevent data corruption during file saving.
     """
     def __init__(self, isTest: bool = False, isDebug: bool = False):
-        self.parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        self.exception_tracker = ExceptionTracker()
-        self.logger = log.LoggerManager(name=__name__, base_dir=f"{self.parent_dir}/logs")
+        self._PARENT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self._exception_tracker = ExceptionTracker()
+        self._logger = log.LoggerManager()
         self.isTest = isTest
         self.isDebug = isDebug
 
@@ -176,7 +186,7 @@ class FileManager():
                 return Result(True, None, None, json.load(f))
         except (FileNotFoundError, json.JSONDecodeError) as e:
             print(f"Error loading JSON from {file_path}: {e}")
-            return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
+            return Result(False, f"{type(e).__name__} :{str(e)}", self._exception_tracker.get_exception_location(e).data, self._exception_tracker.get_exception_info(e).data)
         
     def load_file(self, file_path: str) -> Result:
         """
@@ -187,7 +197,7 @@ class FileManager():
                 return Result(True, None, None, f.read())
         except Exception as e:
             print(f"Error loading file from {file_path}: {e}")
-            return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
+            return Result(False, f"{type(e).__name__} :{str(e)}", self._exception_tracker.get_exception_location(e).data, self._exception_tracker.get_exception_info(e).data)
 
     def save_json(self, data: Optional[dict], file_path: str, key: str=None, serialization: bool=False) -> Result:
         """
@@ -214,7 +224,7 @@ class FileManager():
             return Result(True, None, None, None)
 
         except Exception as e:
-            return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
+            return Result(False, f"{type(e).__name__} :{str(e)}", self._exception_tracker.get_exception_location(e).data, self._exception_tracker.get_exception_info(e).data)
                 
     def Atomic_write(self, data: Any, file_path: Union[str, Path]) -> Result:
         """
@@ -249,8 +259,8 @@ class FileManager():
                 try:
                     os.unlink(temp_file_path)
                 except (OSError, Exception) as e:
-                    return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
-            return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
+                    return Result(False, f"{type(e).__name__} :{str(e)}", self._exception_tracker.get_exception_location(e).data, self._exception_tracker.get_exception_info(e).data)
+            return Result(False, f"{type(e).__name__} :{str(e)}", self._exception_tracker.get_exception_location(e).data, self._exception_tracker.get_exception_info(e).data)
         
     def batch_process_json_threaded(self, files: List[str], batch_size: int=10) -> Result:
         """
@@ -286,10 +296,10 @@ class FileManager():
                     try:
                         all_results.extend(future.result())
                     except Exception as e:
-                        self.logger.error(f"Error processing batch: {e}")
+                        self._logger.error(f"Error processing batch: {e}")
             return Result(True, None, None, all_results)
         except Exception as e:
-            return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
+            return Result(False, f"{type(e).__name__} :{str(e)}", self._exception_tracker.get_exception_location(e).data, self._exception_tracker.get_exception_info(e).data)
         
     def batch_process_write_json_threaded(self, data_list: List[Tuple[dict, str, bool]], batch_size: int=10) -> Result:
         """
@@ -326,7 +336,7 @@ class FileManager():
                     all_results.extend(future.result())
             return Result(True, None, None, all_results)
         except Exception as e:
-            return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
+            return Result(False, f"{type(e).__name__} :{str(e)}", self._exception_tracker.get_exception_location(e).data, self._exception_tracker.get_exception_info(e).data)
                 
 class ExceptionTracker():
     """
@@ -419,3 +429,6 @@ with mp.Pool(processes=4) as pool:
     for future in futures:
         all_results.extend(future.get())
 """
+
+if __name__ == "__main__":
+    Core = AppCore()

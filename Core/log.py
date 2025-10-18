@@ -16,71 +16,87 @@ class LoggerManager:
 
     Output logs to log files and console
     """
-    def __init__(self, name: str="test", base_dir: Union[str, Path]="<your_base_dir>/logs | ManualPath"):
+    def __init__(self, base_dir: Union[str, Path]="<your_base_dir>/logs | ManualPath", second_log_dir: str="default"):
         """
         Initialize logger manager
         """
-
-        # 로거를 얻기 전에 이름 및 기타 속성을 저장
+        self._loggers = {}
+        self.exception_tracker = AppCore.ExceptionTracker()
+        # 로그 디렉토리 생성
         if isinstance(base_dir, str) and base_dir.startswith("<your_base_dir>"):
             base_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "/logs")
-        try:
             os.makedirs(base_dir, exist_ok=True)
-        except Exception as e:
-            print(f"Error creating log directory: {e}")
-        self._name = name
+        if not os.path.exists(base_dir):
+            raise ValueError(f"Provided base_dir does not exist(It looks like the directory creation failed.): {base_dir}")
         self._base_dir = base_dir
-        self._setup_logger()
+        self._log_filename = None
+        self.second_log_dir = second_log_dir
 
-    def _setup_logger(self):
+    def Make_logger(self, name: str="TEST"):
         """
-        Set up logger with handlers
+        Create logger instance
         """
-        # 항상 새로운 로거 인스턴스 생성
-        self.logger = logging.getLogger(self._name)
-        self.logger.setLevel(logging.DEBUG)
-        
-        # 핸들러가 있으면 모두 제거 (이전 핸들러 정리)
-        for handler in self.logger.handlers[:]:
-            self.logger.removeHandler(handler)
-
-        # 로그 디렉토리 생성
-        if not os.path.exists(self._base_dir):
-            os.makedirs(self._base_dir, exist_ok=True)
-
-        # 로그 파일명 생성
-        today = time.strftime("%Y-%m-%d,%Hh-%Mm-%Ss", time.localtime()).split(",")
-        self._log_filename = os.path.join(self._base_dir, f"{self._name}_{today[0]}_{today[1]}.log")
-
-        # 포맷터 설정
-        formatter = logging.Formatter('%(asctime)s : [%(name)s] - [%(levelname)s] : %(message)s')
-
-        # 콘솔 핸들러 추가
-        console_handler = logging.StreamHandler()
-        console_handler.setFormatter(formatter)
-        self.logger.addHandler(console_handler)
-
-        # 파일 핸들러 추가
         try:
+            # 중복 체크
+            if name in self._loggers:
+                raise ValueError(f"Logger with name '{name}' already exists.")
+
+            # 항상 새로운 로거 인스턴스 생성
+            self._loggers[name] = logging.getLogger(name)
+            logger = self._loggers[name]
+            logger.setLevel(logging.DEBUG)
+            logger.propagate = False  # 중복 로그 출력을 방지
+
+            # 로그 파일명 생성
+            today = time.strftime("%Y-%m-%d,%Hh-%Mm-%Ss", time.localtime()).split(",")
+            self._log_filename = f"{self._base_dir}/{self.second_log_dir}_{today[0]}_{today[1]}/{name}.log"
+            os.makedirs(os.path.dirname(self._log_filename), exist_ok=True)
+
+            # 핸들러 중복 방지
+            for handler in logger.handlers[:]:
+                logger.removeHandler(handler)
+
+            # 포맷터 설정
+            formatter = logging.Formatter('%(asctime)s : [%(name)s] - [%(levelname)s] : %(message)s')
+
+            # 콘솔 핸들러 추가
+            console_handler = logging.StreamHandler()
+            console_handler.setFormatter(formatter)
+            logger.addHandler(console_handler)
+
+            # 파일 핸들러 추가
             file_handler = logging.FileHandler(self._log_filename, mode='a', encoding='utf-8')
             file_handler.setFormatter(formatter)
-            self.logger.addHandler(file_handler)
+            logger.addHandler(file_handler)
         except Exception as e:
-            print(f"Error creating file handler: {e}")
+            return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
 
-    def get_logger(self) -> logging.Logger:
+    def get_logger(self, name="TEST") -> logging.Logger:
         """
         Return logger object
         """
-        # 핸들러가 없으면 다시 설정
-        if not self.logger.handlers:
-            self._setup_logger()
-            
-        return self.logger
-    
+        try:
+            if name not in self._loggers:
+                raise ValueError(f"Logger with name '{name}' does not exist. Please create it first using Make_logger method.")
+            else:
+                return self._loggers[name]
+        except Exception as e:
+            return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
+        
+
 
 
 # Example usage:
 
-# logger = LoggerManager().get_logger()
-# logger.info("Log system initialized.")
+
+# if __name__ == "__main__":
+#     logger_manager = LoggerManager(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs"))
+#     logger_manager.Make_logger("ExampleLogger")
+#     logger_manager.Make_logger("AnotherLogger")
+#     logger = logger_manager.get_logger("ExampleLogger")
+#     logger2 = logger_manager.get_logger("AnotherLogger")
+#     logger.info("This is a info message.")
+#     logger.error("This is a error message.")
+#     logger.debug("This is a debug message.")
+#     logger.warning("This is a warning message.")
+#     logger2.info("This is a info message.")
