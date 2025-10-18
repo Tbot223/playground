@@ -347,6 +347,3 @@ with mp.Pool(processes=4) as pool:
     for future in futures:
         all_results.extend(future.get())
 """
-
-if __name__ == "__main__":
-    Core = AppCore()
