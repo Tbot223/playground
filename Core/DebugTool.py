@@ -34,8 +34,8 @@ class DebugTool:
         try:
             if isDebug:
                 self.logger.debug(message)
-                return Result(True, None, None, None)
-            return Result(True, None, "Debug is disabled", None)
+                return Result(True, None, None, True)
+            return Result(True, None, "Debug is disabled", False)
         except Exception as e:
             print(f"Error in debug_log function: {e}")
             return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)

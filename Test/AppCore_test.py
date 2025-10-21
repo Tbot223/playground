@@ -6,13 +6,14 @@ import os
 
 # internal modules
 from Core import AppCore
+from Core import ExceptionTracker
 
 
 @pytest.fixture(scope="module")
 def setup_module():
     core = AppCore.AppCore()
     file_manager = AppCore.FileManager()
-    exception_tracker = AppCore.ExceptionTracker()
+    exception_tracker = ExceptionTracker()
     return core, file_manager, exception_tracker
 
 @pytest.mark.usefixtures("tmp_path", "setup_module")
@@ -206,13 +207,13 @@ class TestEdgeCases:
         # Simulate crashed JSON file by creating an invalid JSON file
         json_file = tmp_path / "fr.json"
         json_file.write_text('{"Test Key": "This is a test value"')  # Missing closing brace
-        core.lang.append("fr")  # Add 'fr' to supported languages
+        core._LANG.append("fr")  # Add 'fr' to supported languages
         result = core.getTextByLang("fr", "Test Key")
         assert not result.success
         assert "Language file for 'fr' could not be loaded." in result.error
 
-        file_manager.parent_dir = core.parent_dir  # Restore original path
-        core.lang.remove("fr")  # Remove 'fr' from supported languages
+        file_manager._PARENT_DIR = core._PARENT_DIR  # Restore original path
+        core._LANG.remove("fr")  # Remove 'fr' from supported languages
 
     def test_key_not_found(self, setup_module: tuple):
         core, file_manager, exception_tracker = setup_module
@@ -235,7 +236,7 @@ class TestEdgeCases:
     def test_init_with_custom_parent_dir(self, tmp_path: Path):
         custom_dir = tmp_path / "custom_core"
         core = AppCore.AppCore(parent_dir=str(custom_dir))
-        assert core.parent_dir == str(custom_dir)
+        assert core._PARENT_DIR == str(custom_dir)
         assert os.path.exists(custom_dir / "language")  # Language directory should be created
 
     def test_save_json_cannot_load_existing_json(self, tmp_path: Path, setup_module: tuple):

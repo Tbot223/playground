@@ -1,6 +1,5 @@
 from .Result import Result
-from .log import LoggerManager
 from .Exception import ExceptionTracker
-from .DebugTool import DebugTool
+from .Deco import Deco
 
-__all__ = ['Result', 'LoggerManager', 'ExceptionTracker', 'DebugTool']
+__all__ = ['Result', 'ExceptionTracker', 'Deco']

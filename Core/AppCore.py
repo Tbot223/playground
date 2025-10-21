@@ -14,8 +14,6 @@ from Core import Result, log, DebugTool
 from Core.Exception import ExceptionTracker
 
 # Global Variables
-LOG_DIR = f"{Path(__file__).resolve().parent}/logs"
-LOGGER_MANAGER = log.LoggerManager(base_dir=LOG_DIR, second_log_dir="Core")
 
 class AppCore:
     """
@@ -34,7 +32,7 @@ class AppCore:
         - clear_screen: Clears the screen.
     """
 
-    def __init__(self, screen_clear_lines: int=50, parent_dir: str=None, isTest: bool=False, isDebug: bool=False):
+    def __init__(self, screen_clear_lines: int=50, parent_dir: str=None, isTest: bool=False, isDebug: bool=False, logger = None, No_Log: bool=False):
         """
         Initialize AppCore
         """
@@ -42,14 +40,20 @@ class AppCore:
         # Set directory
         self._PARENT_DIR = parent_dir or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.LANGUAGE_DIR = f"{self._PARENT_DIR}/language"
+        self.LOG_DIR = f"{Path(__file__).resolve().parent.parent}/logs"
         os.makedirs(self.LANGUAGE_DIR, exist_ok=True)
 
         # Initialize Classes
-        self._FileManager = FileManager()
+
         self._exception_tracker = ExceptionTracker()
-        LOGGER_MANAGER.Make_logger("AppCore")
-        self._logger = LOGGER_MANAGER.get_logger("AppCore")
+        if logger is None:
+            print("No logger provided, initializing default LoggerManager.")
+            self._LOGGER_MANAGER = log.LoggerManager(base_dir=self.LOG_DIR, second_log_dir="AppCoreLogs")
+            self._LOGGER_MANAGER.Make_logger("AppCore")
+        self._logger = self._LOGGER_MANAGER.get_logger("AppCore") if logger is None else logger
         self._debug_tool = DebugTool.DebugTool(logger=self._logger)
+        self._log = log.Log(logger=self._logger)
+        self._FileManager = FileManager()        
 
         # Set variables
         self.SCREEN_CLEAR_LINES = screen_clear_lines if screen_clear_lines > 0 else 50
@@ -57,6 +61,7 @@ class AppCore:
         self._lang_cache = {}
         self.isTest = isTest
         self.isDebug = isDebug
+        self.No_Log = No_Log
 
         self._logger.info("AppCore initialized successfully.")
 
@@ -104,10 +109,12 @@ class AppCore:
                     self._debug_tool.debug_log(f"Key '{key}' matches the condition: {value} {comparison_type} {threshold}.", self.isDebug)
                     matching_keys.append(key)
 
-            self._debug_tool.debug_log(f"find_keys_by_value completed. Matching keys: {matching_keys}", self.isDebug)
+            self._log.log_msg("info", f"find_keys_by_value completed.", self.No_Log)
+            self._debug_tool.debug_log(f"Matching keys: {matching_keys}", self.isDebug)
+
             return Result(True, None, None, matching_keys)
-            
         except Exception as e:
+            self._log.log_msg("error", f"Error occurred in find_keys_by_value: {str(e)}", self.No_Log)
             return Result(False, f"{type(e).__name__} :{str(e)}", self._exception_tracker.get_exception_location(e).data, self._exception_tracker.get_exception_info(e).data)
 
     def getTextByLang(self, lang: str, key: str) -> Result:
@@ -135,9 +142,11 @@ class AppCore:
             else:
                 raise KeyError(f"Key '{key}' not found in language '{lang}'. Available keys: {list(self._lang_cache[lang].keys())}")
         except Exception as e:
-            self._lang_cache = {}  # Initialize cache
+            try:
+                del self._lang_cache[lang]  # Clear cache on failure
+            except KeyError:
+                self._log.log_msg("warning", f"Attempted to clear non-existent cache for language '{lang}'.", self.No_Log)
             return Result(False, f"{type(e).__name__} :{str(e)}", self._exception_tracker.get_exception_location(e).data, self._exception_tracker.get_exception_info(e).data)
-
 
     def clear_screen(self):
         """
@@ -168,13 +177,31 @@ class FileManager():
 
     2. Atomic Write: Uses temporary files to safely save files and prevent data corruption during file saving.
     """
-    def __init__(self, isTest: bool = False, isDebug: bool = False):
+    def __init__(self, isTest: bool = False, isDebug: bool = False, logger = None, No_Log: bool = False):
+        """
+        initialize FileManager
+        """
+        print("Initializing FileManager...")
+        # initialize directory
         self._PARENT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self._LOG_DIR = f"{Path(__file__).resolve().parent.parent}/logs"
+
+        # initialize classes
         self._exception_tracker = ExceptionTracker()
-        LOGGER_MANAGER.Make_logger("FileManager")
-        self._logger = LOGGER_MANAGER.get_logger("FileManager")
+        if logger is None:
+            print("No logger provided, initializing default LoggerManager.")
+            self._LOGGER_MANAGER = log.LoggerManager(base_dir=self._LOG_DIR, second_log_dir="FileManagerLogs")
+            self._LOGGER_MANAGER.Make_logger("FileManager")
+        self._logger = self._LOGGER_MANAGER.get_logger("FileManager") if logger is None else logger
+        self._log = log.Log(logger=self._logger)
+        self._debug_tool = DebugTool.DebugTool(logger=self._logger)
+
+        # set variables
         self.isTest = isTest
         self.isDebug = isDebug
+        self.No_Log = No_Log
+
+        self._log.log_msg("info", "FileManager initialized successfully.", self.No_Log)
 
     def load_json(self, file_path: str) -> Result:
         """
@@ -182,9 +209,10 @@ class FileManager():
         """
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
+                self._log.log_msg("info", f"JSON loaded successfully from {file_path}.", self.No_Log)
                 return Result(True, None, None, json.load(f))
         except (FileNotFoundError, json.JSONDecodeError) as e:
-            print(f"Error loading JSON from {file_path}: {e}")
+            self._log.log_msg("error", f"Error loading JSON from {file_path}: {e}", self.No_Log)
             return Result(False, f"{type(e).__name__} :{str(e)}", self._exception_tracker.get_exception_location(e).data, self._exception_tracker.get_exception_info(e).data)
         
     def load_file(self, file_path: str) -> Result:
@@ -193,9 +221,10 @@ class FileManager():
         """
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
+                self._log.log_msg("info", f"File loaded successfully from {file_path}.", self.No_Log)
                 return Result(True, None, None, f.read())
         except Exception as e:
-            print(f"Error loading file from {file_path}: {e}")
+            self._log.log_msg("error", f"Error loading file from {file_path}: {e}", self.No_Log)
             return Result(False, f"{type(e).__name__} :{str(e)}", self._exception_tracker.get_exception_location(e).data, self._exception_tracker.get_exception_info(e).data)
 
     def save_json(self, data: Optional[dict], file_path: str, key: str=None, serialization: bool=False) -> Result:
@@ -220,9 +249,11 @@ class FileManager():
             
             # Perform atomic write
             self.Atomic_write(json.dumps(final_data, ensure_ascii=False, indent=4) if serialization else json.dumps(final_data), file_path)
+            self._log.log_msg("info", f"JSON saved successfully to {file_path}.", self.No_Log)
             return Result(True, None, None, None)
 
         except Exception as e:
+            self._log.log_msg("error", f"Error saving JSON to {file_path}: {e}", self.No_Log)
             return Result(False, f"{type(e).__name__} :{str(e)}", self._exception_tracker.get_exception_location(e).data, self._exception_tracker.get_exception_info(e).data)
                 
     def Atomic_write(self, data: Any, file_path: Union[str, Path]) -> Result:
@@ -250,15 +281,20 @@ class FileManager():
             
             # Atomic move
             shutil.move(temp_file_path, file_path)
+            self._log.log_msg("info", f"File written successfully to {file_path}.", self.No_Log)
             return Result(True, None, None, None)
             
         except Exception as e:
             # Clean up temporary file (on move failure)
+            self._log.log_msg("error", f"Error during atomic write to {file_path}: {e}", self.No_Log)
             if temp_file_path and os.path.exists(temp_file_path):
                 try:
                     os.unlink(temp_file_path)
+                    self._log.log_msg("info", f"Temporary file deleted successfully: {temp_file_path}", self.No_Log)
                 except (OSError, Exception) as e:
+                    self._log.log_msg("error", f"Failed to delete temporary file {temp_file_path}: {e}", self.No_Log)
                     return Result(False, f"{type(e).__name__} :{str(e)}", self._exception_tracker.get_exception_location(e).data, self._exception_tracker.get_exception_info(e).data)
+            self._log.log_msg("error", f"Atomic write failed for {file_path}. Successfully cleaned up temporary files.", self.No_Log)
             return Result(False, f"{type(e).__name__} :{str(e)}", self._exception_tracker.get_exception_location(e).data, self._exception_tracker.get_exception_info(e).data)
         
     def batch_process_json_threaded(self, files: List[str], batch_size: int=10) -> Result:
@@ -295,9 +331,11 @@ class FileManager():
                     try:
                         all_results.extend(future.result())
                     except Exception as e:
-                        self._logger.error(f"Error processing batch: {e}")
+                        self._log.log_msg("error", f"Error processing batch: {e}", self.No_Log)
+            self._log.log_msg("info", "Batch processing of JSON files completed successfully.", self.No_Log)
             return Result(True, None, None, all_results)
         except Exception as e:
+            self._log.log_msg("error", f"Error in batch_process_json_threaded: {e}", self.No_Log)
             return Result(False, f"{type(e).__name__} :{str(e)}", self._exception_tracker.get_exception_location(e).data, self._exception_tracker.get_exception_info(e).data)
         
     def batch_process_write_json_threaded(self, data_list: List[Tuple[dict, str, bool]], batch_size: int=10) -> Result:
@@ -332,9 +370,13 @@ class FileManager():
                 futures = [executor.submit(process_batch, data_list[i:i+batch_size]) 
                            for i in range(0, len(data_list), batch_size)]
                 for future in futures:
-                    all_results.extend(future.result())
+                    try:
+                        all_results.extend(future.result())
+                    except Exception as e:
+                        self._log.log_msg("error", f"Error processing batch: {e}", self.No_Log)
             return Result(True, None, None, all_results)
         except Exception as e:
+            self._log.log_msg("error", f"Error in batch_process_write_json_threaded: {e}", self.No_Log)
             return Result(False, f"{type(e).__name__} :{str(e)}", self._exception_tracker.get_exception_location(e).data, self._exception_tracker.get_exception_info(e).data)
 
 """
@@ -347,3 +389,5 @@ with mp.Pool(processes=4) as pool:
     for future in futures:
         all_results.extend(future.get())
 """
+
+a = AppCore()

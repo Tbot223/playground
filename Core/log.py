@@ -24,7 +24,7 @@ class LoggerManager:
             second_log_dir (str): Subdirectory name within the base log directory.
         """
         self._loggers = {}
-        self.exception_tracker = ExceptionTracker()
+        self._exception_tracker = ExceptionTracker()
         # 로그 디렉토리 생성
         if base_dir is None:
             base_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "/logs")
@@ -50,7 +50,7 @@ class LoggerManager:
 
             # 로그 파일명 생성
             today = time.strftime("%Y-%m-%d,%Hh-%Mm-%Ss", time.localtime()).split(",")
-            self._log_filename = f"{self._base_dir}/{self.second_log_dir}_{today[0]}_{today[1]}/{name}.log"
+            self._log_filename = f"{self._base_dir}/{self.second_log_dir}/{today[0]}_{today[1]}_log/{name}.log"
             os.makedirs(os.path.dirname(self._log_filename), exist_ok=True)
 
             # 핸들러 중복 방지
@@ -70,7 +70,7 @@ class LoggerManager:
             file_handler.setFormatter(formatter)
             logger.addHandler(file_handler)
         except Exception as e:
-            return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
+            return Result(False, f"{type(e).__name__} :{str(e)}", self._exception_tracker.get_exception_location(e).data, self._exception_tracker.get_exception_info(e).data)
 
     def get_logger(self, name="TEST") -> logging.Logger:
         """
@@ -82,10 +82,44 @@ class LoggerManager:
             else:
                 return self._loggers[name]
         except Exception as e:
-            return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
+            return Result(False, f"{type(e).__name__} :{str(e)}", self._exception_tracker.get_exception_location(e).data, self._exception_tracker.get_exception_info(e).data)
         
+class Log:
+    """
+    Log class
 
+    Provides logging utilities
+    """
+    
+    def __init__(self, logger: logging.Logger):
+        """
+        Initialize log class
+        """
+        self.logger = logger
+        self.log_levels = {
+                "info" : self.logger.info,
+                "error" : self.logger.error,
+                "debug" : self.logger.debug,
+                "warning" : self.logger.warning
+            }
 
+    def log_msg(self, level: str, message: str, no_log: bool=False):
+        """
+        Function to log messages at different levels
+        """
+        try:
+            if not isinstance(message, str) or not isinstance(level, str) or not isinstance(no_log, bool):
+                raise ValueError("Invalid input types for log_msg function.")
+            if no_log:
+                return Result(True, None, "Logging is disabled", False)
+            log_level = level.lower()
+            if log_level in self.log_levels:
+                self.log_levels[log_level](message)
+            else:
+                raise ValueError(f"Invalid log level: {log_level}. Use 'info', 'error', 'debug', or 'warning'.")
+            return Result(True, None, None, True)
+        except Exception as e:
+            return Result(False, f"{type(e).__name__} :{str(e)}", self._exception_tracker.get_exception_location(e).data, self._exception_tracker.get_exception_info(e).data)
 
 # Example usage:
 

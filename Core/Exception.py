@@ -51,7 +51,7 @@ class ExceptionTracker():
             return Result(True, None, None, f"'{frame.filename}', line {frame.lineno}, in {frame.name}")
         except Exception as e:
             print("An error occurred while handling another exception. This may indicate a critical issue.")
-            return Result(False, f"{type(e).__name__} :{str(e)}", "AppCore.ExceptionTracker.get_exception_location, R341-383", traceback.format_exc())
+            return Result(False, f"{type(e).__name__} :{str(e)}", "Core.ExceptionTracker.get_exception_location, R23-54", traceback.format_exc())
 
     def get_exception_info(self, error: Exception, user_input: Any=None, params: dict=None) -> Result:
         """
@@ -87,4 +87,4 @@ class ExceptionTracker():
             return Result(True, None, None, error_info)
         except Exception as e:
             print("An error occurred while handling another exception. This may indicate a critical issue.")
-            return Result(False, f"{type(e).__name__} :{str(e)}", "AppCore.ExceptionTracker.get_exception_location, R385-419", traceback.format_exc())
+            return Result(False, f"{type(e).__name__} :{str(e)}", "Core.ExceptionTracker.get_exception_info, R56-90", traceback.format_exc())
