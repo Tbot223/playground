@@ -19,7 +19,7 @@ class StorageManager:
 
     Performs data saving, loading, deletion, listing, validation, etc.
     All data is stored in JSON format.
-    Default save path is ./{_parent_dir}/saves/.
+    Default save path is ./{_PARENT_DIR}/saves/.
     Backup functionality is planned for future implementation.
 
     1. load_data(save_type, save_id="latest")
@@ -65,19 +65,19 @@ class StorageManager:
         """
         print("Initializing StorageManager...")
         # Initialize directories
-        self._parent_dir = parent_dir
-        self._base_dir = f"{self._parent_dir}/saves"
-        self._backup_dir = f"{self._parent_dir}/backup"
-        self._log_dir = f"{Path(__file__).resolve().parent}/logs"
-        os.makedirs(self._base_dir, exist_ok=True)
+        self._PARENT_DIR = parent_dir
+        self._BASE_DIR = f"{self._PARENT_DIR}/saves"
+        self._BACKUP_DIR = f"{self._PARENT_DIR}/backup"
+        self._LOG_DIR = f"{os.path.dirname(os.path.dirname(os.path.abspath(__file__)))}/logs"
+        os.makedirs(self._BASE_DIR, exist_ok=True)
 
         # Initialize classes
         self._core = AppCore.AppCore()
         self._file_manager = AppCore.FileManager()
         self._exception_tracker = ExceptionTracker()
-        self._log_dir = f"{Path(__file__).resolve().parent}/logs"
+        self._LOG_DIR = f"{os.path.dirname(os.path.dirname(os.path.abspath(__file__)))}/logs"
         if logger is None:
-            self._logger_manager = log.LoggerManager(_base_dir=self._log_dir, second_log_dir="StorageManagerLogs")
+            self._logger_manager = log.LoggerManager(_BASE_DIR=self._LOG_DIR, second_LOG_DIR="StorageManagerLogs")
             self._logger_manager.Make_logger(name="StorageManager")
         self._logger = self._logger_manager.get_logger("StorageManager") if logger is None else logger
         self._log = log.Log(self._logger)
@@ -100,8 +100,8 @@ class StorageManager:
                 if not latest_save.success:
                     raise ValueError("Failed to get latest save ID.")
                 save_id = latest_save.data
-            file_path = f"{self._base_dir}/{save_id}/{save_type}.json"
-            load_result = self.core.FileManager.load_json(file_path)
+            file_path = f"{self._BASE_DIR}/{save_id}/{save_type}.json"
+            load_result = self.core._file_manager.load_json(file_path)
             if not load_result.success:
                 raise ValueError(f"Failed to load {save_type} data: {load_result.error}")
             self._log.log_msg("info", f"Successfully loaded {save_type} data.", self.No_Log)
@@ -117,8 +117,8 @@ class StorageManager:
         try:
             if save_id is None:
                 raise ValueError("save_id cannot be None. Use save_all() to create a new save.")
-            file_path = f"{self._base_dir}/{save_id}/{save_type}.json"
-            self.FileManager.save_json(save_data, file_path)
+            file_path = f"{self._BASE_DIR}/{save_id}/{save_type}.json"
+            self._file_manager.save_json(save_data, file_path)
             self._log.log_msg("info", f"Successfully saved {save_type} data.", self.No_Log)
             return Result(True, None, None, None)
         except Exception as e:
@@ -151,33 +151,37 @@ class StorageManager:
             def save_item(item, save_id=None): # Internal function to save data
                 if save_id is not None:
                     for key, value in item.items():
-                        file_path = f"{self._base_dir}/{save_id}/{key}.json"
-                        self.FileManager.save_json(value, file_path)
+                        file_path = f"{self._BASE_DIR}/{save_id}/{key}.json"
+                        self._file_manager.save_json(value, file_path)
                 else: # Cannot create new save if save_id is None
                     raise ValueError("save_id cannot be None when saving individual items.(inner function, save_item)")
 
             if save_id is not None: # When save ID is provided
-                if not os.path.exists(os.path.join(self._base_dir, save_id)):
-                    os.makedirs(os.path.join(self._base_dir, save_id), exist_ok=True)
+                if not os.path.exists(os.path.join(self._BASE_DIR, save_id)):
+                    os.makedirs(os.path.join(self._BASE_DIR, save_id), exist_ok=True)
                 self.save_metadata(save_id, metadata)
-                for item in data: # Overwrite data to given ID
+                for item in data:
                     save_item(item, save_id)
                 return Result(True, None, None, None)
             else: # When save ID is not provided, generate new ID
                 i = 1
                 while True: # Create folders in order: save_1, save_2, ...
                     candidate = f"save_{i}" 
-                    candidate_path = os.path.join(f"{self._base_dir}/{candidate}") # saves/save_i
+                    candidate_path = os.path.join(f"{self._BASE_DIR}/{candidate}") # saves/save_i
                     if not os.path.exists(candidate_path): # Create if folder doesn't exist
                         os.makedirs(candidate_path, exist_ok=True)
-                        self.save_metadata(candidate, metadata)
-                        for item in data:
-                            save_item(item, candidate)
-                        self._log.log_msg("info", f"Successfully created new save: {candidate}", self.No_Log)
-                        return Result(True, None, None, None)
+                        break
                     i += 1
+
+                # Save new data
+                self.save_metadata(candidate, metadata)
+                for item in data:
+                    save_item(item, candidate)
+                self._log.log_msg("info", f"Successfully created new save: {candidate}", self.No_Log)
+                return Result(True, None, None, None)
         except Exception as e:
-            return Result(False, f"{type(e).__name__} :{str(e)}", self.__exception_tracker.get_exception_location(e).data, self.__exception_tracker.get_exception_info(e).data)
+            self._log.log_msg("error", f"Error saving all data: {e}", self.No_Log)
+            return Result(False, f"{type(e).__name__} :{str(e)}", self._exception_tracker.get_exception_location(e).data, self._exception_tracker.get_exception_info(e).data)
 
     def load_save(self, save_id: str, required_files: List = None) -> Result:
         """
@@ -188,9 +192,9 @@ class StorageManager:
                 raise ValueError("save_id cannot be None.")
             if required_files is None:
                 raise ValueError("required_files must be provided as a list of filenames.")
-            if not os.path.exists(os.path.join(self._base_dir, save_id)):
+            if not os.path.exists(os.path.join(self._BASE_DIR, save_id)):
                 raise FileNotFoundError(f"Save ID '{save_id}' does not exist.")
-            save_path = Path(self._base_dir) / save_id
+            save_path = Path(self._BASE_DIR) / save_id
             files = os.listdir(save_path)
             data = {}
             for file in files:
@@ -225,8 +229,8 @@ class StorageManager:
             if other_info is not None:
                 metadata.update(other_info)
 
-            file_path = f"{self._base_dir}/{save_id}/metadata.json"
-            self.FileManager.save_json(metadata, file_path)
+            file_path = f"{self._BASE_DIR}/{save_id}/metadata.json"
+            self._file_manager.save_json(metadata, file_path)
             self._log.log_msg("info", f"Successfully saved metadata for save ID: {save_id}", self.No_Log)
             return Result(True, None, None, None)
         except Exception as e:
@@ -240,10 +244,10 @@ class StorageManager:
         try:
             if save_id is None:
                 raise ValueError("save_id cannot be None.")
-            if not os.path.exists(os.path.join(self._base_dir, save_id)):
+            if not os.path.exists(os.path.join(self._BASE_DIR, save_id)):
                 raise FileNotFoundError(f"Save ID '{save_id}' does not exist.")
-            file_path = f"{self._base_dir}/{save_id}/metadata.json"
-            metadata = self.FileManager.load_json(file_path)
+            file_path = f"{self._BASE_DIR}/{save_id}/metadata.json"
+            metadata = self._file_manager.load_json(file_path)
             if not metadata.success:
                 raise ValueError("Failed to load metadata.")
             if metadata.data is None:
@@ -259,7 +263,7 @@ class StorageManager:
         Return all save IDs in the saves/ folder
         """
         try:
-            saves = os.listdir(self._base_dir)
+            saves = os.listdir(self._BASE_DIR)
             self._log.log_msg("info", f"Successfully listed saves. Total saves: {len(saves)}", self.No_Log)
             return Result(True, None, None, saves)
         except Exception as e:
@@ -271,7 +275,7 @@ class StorageManager:
         Delete the corresponding save folder
         """
         try:
-            save_path = os.path.join(self._base_dir, save_id) # saves/save_id
+            save_path = os.path.join(self._BASE_DIR, save_id) # saves/save_id
             if os.path.exists(save_path):
                 try:
                     shutil.rmtree(save_path) # Delete folder and all internal files
@@ -291,7 +295,7 @@ class StorageManager:
         Check if a specific save ID exists
         """
         try:
-            save_path = os.path.join(self._base_dir, save_id)
+            save_path = os.path.join(self._BASE_DIR, save_id)
             self._log.log_msg("info", f"Checked existence of save ID: {save_id}", self.No_Log)
             return Result(True, None, None, os.path.exists(save_path))
         except Exception as e:
@@ -310,7 +314,7 @@ class StorageManager:
         try:
             if required_files is None:
                 raise ValueError("required_files must be provided as a list of filenames.")
-            save_path = os.path.join(self._base_dir, save_id)
+            save_path = os.path.join(self._BASE_DIR, save_id)
             searched_file = os.listdir(save_path)
             missing_files = []
             for req_file in required_files:

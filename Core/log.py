@@ -27,7 +27,7 @@ class LoggerManager:
         self._exception_tracker = ExceptionTracker()
         # 로그 디렉토리 생성
         if base_dir is None:
-            base_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "/logs")
+            base_dir = Path(__file__).resolve().parent.parent / "logs"
             os.makedirs(base_dir, exist_ok=True)
         self._base_dir = base_dir
         self._log_filename = None
@@ -69,6 +69,8 @@ class LoggerManager:
             file_handler = logging.FileHandler(self._log_filename, mode='a', encoding='utf-8')
             file_handler.setFormatter(formatter)
             logger.addHandler(file_handler)
+
+            return Result(True, None, None, True)
         except Exception as e:
             return Result(False, f"{type(e).__name__} :{str(e)}", self._exception_tracker.get_exception_location(e).data, self._exception_tracker.get_exception_info(e).data)
 
@@ -80,7 +82,7 @@ class LoggerManager:
             if name not in self._loggers:
                 raise ValueError(f"Logger with name '{name}' does not exist. Please create it first using Make_logger method.")
             else:
-                return self._loggers[name]
+                return Result(True, None, None, self._loggers[name])
         except Exception as e:
             return Result(False, f"{type(e).__name__} :{str(e)}", self._exception_tracker.get_exception_location(e).data, self._exception_tracker.get_exception_info(e).data)
         

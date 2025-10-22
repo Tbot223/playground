@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 
 # internal modules
-from Core import Result, log
+from Core import Result
 from Core.Exception import ExceptionTracker
 
 class DebugTool:
@@ -12,7 +12,7 @@ class DebugTool:
 
     Provides debugging utilities
     """
-    def __init__(self, logger = None):
+    def __init__(self, logger):
         """
         Initialize debug tool
 
@@ -20,12 +20,7 @@ class DebugTool:
             logger: LoggerManager instance for logging
         """
         self.exception_tracker = ExceptionTracker()
-        self.LoggerManager = log.LoggerManager(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs"))
-        if logger is None:
-            print("No logger provided, initializing default LoggerManager.")
-            self.logger = self.LoggerManager.Make_logger(name="DebugTool")
-        else:
-            self.logger = logger
+        self.logger = logger
 
     def debug_log(self, message: str, isDebug: bool):
         """

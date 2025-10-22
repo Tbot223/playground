@@ -23,7 +23,7 @@ class AppCore:
     JSON file management, multilingual support, and data structure search.
 
     1. Multilingual Support: Provides functionality to manage and return text in multiple languages.
-        - text: Returns text according to language settings.
+        - getTextByLang: Returns text according to language settings.
 
     2. Data Structure Search: Provides functionality to find keys that meet specific conditions in dictionaries.
         - find_keys_by_value: Finds keys with values above a specific threshold in dictionaries.
@@ -38,9 +38,9 @@ class AppCore:
         """
         print("Initializing AppCore...")
         # Set directory
-        self._PARENT_DIR = parent_dir or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        self.LANGUAGE_DIR = f"{self._PARENT_DIR}/language"
-        self.LOG_DIR = f"{Path(__file__).resolve().parent.parent}/logs"
+        self._PARENT_DIR = parent_dir or Path(__file__).resolve().parent.parent
+        self.LANGUAGE_DIR = self._PARENT_DIR / "language"
+        self.LOG_DIR = Path(__file__).resolve().parent.parent / "logs"
         os.makedirs(self.LANGUAGE_DIR, exist_ok=True)
 
         # Initialize Classes
@@ -53,7 +53,7 @@ class AppCore:
         self._logger = self._LOGGER_MANAGER.get_logger("AppCore") if logger is None else logger
         self._debug_tool = DebugTool.DebugTool(logger=self._logger)
         self._log = log.Log(logger=self._logger)
-        self._FileManager = FileManager()        
+        self._file_manager = FileManager(No_Log=True, logger=self._logger)
 
         # Set variables
         self.SCREEN_CLEAR_LINES = screen_clear_lines if screen_clear_lines > 0 else 50
@@ -131,7 +131,7 @@ class AppCore:
 
             # Check cache
             if lang not in self._lang_cache:
-                cache = self._FileManager.load_json(f"{self._PARENT_DIR}/language/{lang}.json")
+                cache = self._file_manager.load_json(f"{self._PARENT_DIR}/language/{lang}.json")
                 if not cache.success:
                     raise FileNotFoundError(f"Language file for '{lang}' could not be loaded.")
                 self._lang_cache[lang] = cache.data
@@ -227,7 +227,7 @@ class FileManager():
             self._log.log_msg("error", f"Error loading file from {file_path}: {e}", self.No_Log)
             return Result(False, f"{type(e).__name__} :{str(e)}", self._exception_tracker.get_exception_location(e).data, self._exception_tracker.get_exception_info(e).data)
 
-    def save_json(self, data: Optional[dict], file_path: str, key: str=None, serialization: bool=False) -> Result:
+    def save_json(self, data: dict, file_path: str, key: str=None, serialization: bool=False) -> Result:
         """
         Function to save dictionaries as JSON files (Atomic write applied)
         - Only JSON files are supported. Other formats Use Atomic_write.
@@ -389,5 +389,3 @@ with mp.Pool(processes=4) as pool:
     for future in futures:
         all_results.extend(future.get())
 """
-
-a = AppCore()
