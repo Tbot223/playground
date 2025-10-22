@@ -8,7 +8,7 @@ import stat
 from pathlib import Path
 
 # internal modules
-from Core import Result, AppCore, log, DebugTool
+from Core import Result, AppCore, log, DebugTool, FileManager
 from Core.Exception import ExceptionTracker
 
 # Global Variables
@@ -59,9 +59,18 @@ class StorageManager:
     11. backup_save(save_id)
         - Not needed currently, implement later if needed
     """
-    def __init__(self, parent_dir: str = os.path.dirname(os.path.dirname(os.path.abspath(__file__))), isDebug: bool=False, isTest: bool=False, logger=None, No_Log: bool=False):
+    def __init__(self, parent_dir: Union[str, Path] = os.path.dirname(os.path.dirname(os.path.abspath(__file__))), isDebug: bool=False, isTest: bool=False, logger=None, No_Log: bool=False, 
+                appcore: AppCore.AppCore = None, filemanager: FileManager = None, log_class: log.Log = None, logger_manager: log.LoggerManager = None, debug_tool: DebugTool.DebugTool = None):
         """
         Initialize StorageManager
+
+        Dependency Injection available for: - It's not required to inject all these classes, only the ones you want to customize.
+        - instance will create default instances if not provided.
+            - AppCore : AppCore.AppCore
+            - FileManager : FileManager
+            - Log : log.Log
+            - LoggerManager : log.LoggerManager
+            - DebugTool : DebugTool.DebugTool
         """
         print("Initializing StorageManager...")
         # Initialize directories
@@ -72,16 +81,15 @@ class StorageManager:
         os.makedirs(self._BASE_DIR, exist_ok=True)
 
         # Initialize classes
-        self._core = AppCore.AppCore()
-        self._file_manager = AppCore.FileManager()
         self._exception_tracker = ExceptionTracker()
-        self._LOG_DIR = f"{os.path.dirname(os.path.dirname(os.path.abspath(__file__)))}/logs"
         if logger is None:
-            self._logger_manager = log.LoggerManager(_BASE_DIR=self._LOG_DIR, second_LOG_DIR="StorageManagerLogs")
+            self._logger_manager = logger_manager or log.LoggerManager(base_dir=self._LOG_DIR, second_log_dir="StorageManagerLogs")
             self._logger_manager.Make_logger(name="StorageManager")
-        self._logger = self._logger_manager.get_logger("StorageManager") if logger is None else logger
-        self._log = log.Log(self._logger)
-        self._debug_tool = DebugTool.DebugTool(logger=self._logger)
+        self._logger = logger or self._logger_manager.get_logger("StorageManager").data
+        self._log = log_class or log.Log(self._logger)
+        self._core = appcore or AppCore.AppCore(logger=self._logger)
+        self._file_manager = filemanager or FileManager(logger=self._logger)
+        self._debug_tool = debug_tool or DebugTool.DebugTool(logger=self._logger)
 
         # Set Variables
         self.isDebug = isDebug
@@ -101,7 +109,7 @@ class StorageManager:
                     raise ValueError("Failed to get latest save ID.")
                 save_id = latest_save.data
             file_path = f"{self._BASE_DIR}/{save_id}/{save_type}.json"
-            load_result = self.core._file_manager.load_json(file_path)
+            load_result = self._file_manager.load_json(file_path)
             if not load_result.success:
                 raise ValueError(f"Failed to load {save_type} data: {load_result.error}")
             self._log.log_msg("info", f"Successfully loaded {save_type} data.", self.No_Log)

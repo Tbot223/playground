@@ -17,7 +17,7 @@ def setup_module(tmp_path_factory):
 class TestStorageManager:
     def test_save_all_func(self, setup_module):
         storage_manager = setup_module
-        tmp_dir = Path(storage_manager.parent_dir)
+        tmp_dir = Path(storage_manager._PARENT_DIR)
         test_data = [{"user_data": {"user_data": "test"}}, {"world_data": {"world_data": "test"}}]
         metadata = {"user_name": "tester", "playtime": 100}
 

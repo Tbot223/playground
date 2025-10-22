@@ -5,14 +5,14 @@ import sys
 import os
 
 # internal modules
-from Core import AppCore
+from Core import AppCore, FileManager
 from Core import ExceptionTracker
 
 
 @pytest.fixture(scope="module")
 def setup_module():
     core = AppCore.AppCore()
-    file_manager = AppCore.FileManager()
+    file_manager = FileManager()
     exception_tracker = ExceptionTracker()
     return core, file_manager, exception_tracker
 
@@ -235,8 +235,8 @@ class TestEdgeCases:
 
     def test_init_with_custom_parent_dir(self, tmp_path: Path):
         custom_dir = tmp_path / "custom_core"
-        core = AppCore.AppCore(parent_dir=str(custom_dir))
-        assert core._PARENT_DIR == str(custom_dir)
+        core = AppCore.AppCore(parent_dir=custom_dir)
+        assert core._PARENT_DIR == custom_dir
         assert os.path.exists(custom_dir / "language")  # Language directory should be created
 
     def test_save_json_cannot_load_existing_json(self, tmp_path: Path, setup_module: tuple):
