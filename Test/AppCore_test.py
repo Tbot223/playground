@@ -5,14 +5,15 @@ import sys
 import os
 
 # internal modules
-from Core import AppCore, FileManager
+from Core import AppCore, FileManager, log
 from Core import ExceptionTracker
 
 
 @pytest.fixture(scope="module")
 def setup_module():
-    core = AppCore.AppCore()
-    file_manager = FileManager()
+    log_manager = log.LoggerManager(second_log_dir="TestLogs")
+    file_manager = FileManager(logger_manager=log_manager)
+    core = AppCore.AppCore(logger_manager=log_manager, filemanager=file_manager)
     exception_tracker = ExceptionTracker()
     return core, file_manager, exception_tracker
 
@@ -135,18 +136,18 @@ class TestAppCore:
         # Create multiple JSON files
         files = []
         for i in range(5):
-            file = tmp_path / f"test_{i}.json"
-            file.write_text(f'"key": "value_{i}"')
-            files.append(file)
+            file_path = tmp_path / f"test_{i}.json"
+            file_manager.save_json({"key": f"value_{i}"}, file_path)
+            files.append(file_path)
 
-        result = file_manager.batch_process_json_threaded(files)
+        result = file_manager.load_json_threaded(files)
         assert result.success
 
         # Verify each file has been processed
         for i in range(5):
             file = tmp_path / f"test_{i}.json"
             content = file.read_text()
-            assert content == f'"key": "value_{i}"'
+            assert content == f'{{"key": "value_{i}"}}'
 
     def test_batch_process_write_json_threaded(self, tmp_path: Path, setup_module: tuple):
         core, file_manager, exception_tracker = setup_module
@@ -157,7 +158,7 @@ class TestAppCore:
             data = {"new_key": f"value_{i}"}
             data_list.append((data, file, False))
             
-        result = file_manager.batch_process_write_json_threaded(data_list)
+        result = file_manager.write_json_threaded(data_list)
         assert result.success
 
         # Verify each file has been created and processed
@@ -166,15 +167,6 @@ class TestAppCore:
             assert file.exists()
             content = file.read_text()
             assert content == '{"new_key": "value_' + str(i) + '"}'
-            
-    def load_file(self, tmp_path: Path, setup_module: tuple):
-        core, file_manager, exception_tracker = setup_module
-
-        test_file = tmp_path / "test.txt"
-        test_file.write_text("Sample Content")
-        result = file_manager.load_file(test_file)
-        assert result.success
-        assert result.data == "Sample Content"
 
 class TestEdgeCases:
     def test_find_keys_by_value_invalid_type(self, setup_module: tuple):
@@ -203,7 +195,6 @@ class TestEdgeCases:
     def test_getTextByLang_cannot_load_json(self, tmp_path: Path, setup_module: tuple):
         core, file_manager, exception_tracker = setup_module
 
-        file_manager.parent_dir = tmp_path  # Redirect to temporary path
         # Simulate crashed JSON file by creating an invalid JSON file
         json_file = tmp_path / "fr.json"
         json_file.write_text('{"Test Key": "This is a test value"')  # Missing closing brace
@@ -213,7 +204,7 @@ class TestEdgeCases:
         assert "Language file for 'fr' could not be loaded." in result.error
 
         file_manager._PARENT_DIR = core._PARENT_DIR  # Restore original path
-        core._LANG.remove("fr")  # Remove 'fr' from supported languages
+        core._LANG.pop()  # Remove 'fr' from supported languages
 
     def test_key_not_found(self, setup_module: tuple):
         core, file_manager, exception_tracker = setup_module
@@ -222,22 +213,6 @@ class TestEdgeCases:
         result = core.getTextByLang("en", "Nonexistent Key")
         assert not result.success
         assert "Key 'Nonexistent Key' not found in language 'en'." in result.error
-
-    def test_screen_clear_lines(self):
-        core_default = AppCore.AppCore()
-        assert core_default.SCREEN_CLEAR_LINES == 50  # Default value
-
-        core_custom = AppCore.AppCore(screen_clear_lines=30)
-        assert core_custom.SCREEN_CLEAR_LINES == 30  # Custom value
-
-        core_negative = AppCore.AppCore(screen_clear_lines=-10)
-        assert core_negative.SCREEN_CLEAR_LINES == 50  # Negative value defaults to 50
-
-    def test_init_with_custom_parent_dir(self, tmp_path: Path):
-        custom_dir = tmp_path / "custom_core"
-        core = AppCore.AppCore(parent_dir=custom_dir)
-        assert core._PARENT_DIR == custom_dir
-        assert os.path.exists(custom_dir / "language")  # Language directory should be created
 
     def test_save_json_cannot_load_existing_json(self, tmp_path: Path, setup_module: tuple):
         core, file_manager, exception_tracker = setup_module
@@ -252,26 +227,26 @@ class TestEdgeCases:
 
         # Invalid files list (not strings)
         files = [123, None, 12.34]
-        result = file_manager.batch_process_json_threaded(files)
+        result = file_manager.load_json_threaded(files)
         assert not result.success
-        assert "files must be a list of strings or Path objects." in result.error
+        assert "file_paths must be a list of strings or Path objects." in result.error
 
         # Empty files list
-        result = file_manager.batch_process_json_threaded([])
+        result = file_manager.load_json_threaded([])
         assert not result.success
-        assert "files list is empty or None." in result.error
+        assert "file_paths list is empty or None." in result.error
 
     def test_batch_process_write_json_threaded_with_invalid_data_list(self, tmp_path: Path, setup_module: tuple):
         core, file_manager, exception_tracker = setup_module
 
         # Invalid data_list structure
         data_list = [("not_a_dict", tmp_path / "file1.json", False), ({"key": "value"}, 123, True)]
-        result = file_manager.batch_process_write_json_threaded(data_list)
+        result = file_manager.write_json_threaded(data_list)
         assert not result.success
         assert "data_list must be a list of tuples in the form (dict, str, bool)." in result.error
 
         # Empty data_list
-        result = file_manager.batch_process_write_json_threaded([])
+        result = file_manager.write_json_threaded([])
         assert not result.success
         assert "data_list is empty or None." in result.error
 

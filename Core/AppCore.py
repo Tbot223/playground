@@ -1,8 +1,5 @@
 # external modules
-import json
 import os
-import tempfile
-import shutil
 import subprocess
 from typing import Any, Dict, List, Tuple, Union, Optional
 from pathlib import Path
@@ -17,8 +14,7 @@ class AppCore:
     """
     The AppCore class provides integrated core system functionality for multiple programs.
 
-    Provides core system functionality applicable to most programs, including 
-    JSON file management, multilingual support, and data structure search.
+    Provides core system functionality applicable to most programs.
 
     1. Multilingual Support: Provides functionality to manage and return text in multiple languages.
         - getTextByLang: Returns text according to language settings.
@@ -73,7 +69,7 @@ class AppCore:
 
         self._logger.info("AppCore initialized successfully.")
 
-    def find_keys_by_value(self, json_data: Dict, threshold: Any, comparison_type: str) -> Result:
+    def find_keys_by_value(self, json_data: Dict, threshold: Any, comparison_type: str, nested_lookup: bool = False) -> Result:
         """
         Function to find keys with values above a specific threshold in dictionaries
 
@@ -100,22 +96,24 @@ class AppCore:
                 "below": lambda v: v < threshold, # '<' operator
                 "equal": lambda v: v == threshold # '==' operator
             }
+            def lookup(data: Dict):
+                for key, value in data.items():
+                    threshold_is_str = isinstance(threshold, str)
+                    value_is_str = isinstance(value, str)
+                    if threshold_is_str != value_is_str and comparison_type != "equal":
+                        self._debug_tool.debug_log(f"Skipping key '{key}' due to type mismatch for non-equal comparison.", self.isDebug)
+                        continue
+                    if isinstance(value, (list, tuple)):
+                        self._debug_tool.debug_log(f"Skipping key '{key}' because its value is of unsupported type ({type(value).__name__}).", self.isDebug)
+                        continue
+                    if isinstance(value, dict) and nested_lookup:
+                        lookup(value)  # Recursive call for nested dictionary
+                        continue
+                    elif compare_ops[comparison_type](value): # Perform comparison
+                        self._debug_tool.debug_log(f"Key '{key}' matches the condition: {value} {comparison_type} {threshold}.", self.isDebug)
+                        matching_keys.append(key)
 
-            for key, value in json_data.items(): # Iterate through dictionary
-                threshold_is_str = isinstance(threshold, str)
-                value_is_str = isinstance(value, str)
-                if threshold_is_str and not value_is_str and comparison_type != "equal":
-                    self._debug_tool.debug_log(f"Skipping key '{key}' due to type mismatch between threshold and value.", self.isDebug)
-                    continue
-                if not threshold_is_str and value_is_str and comparison_type != "equal":
-                    self._debug_tool.debug_log(f"Skipping key '{key}' due to type mismatch between threshold and value.", self.isDebug)
-                    continue
-                if isinstance(value, (dict, list, tuple)):
-                    self._debug_tool.debug_log(f"Skipping key '{key}' because its value is of unsupported type ({type(value).__name__}).", self.isDebug)
-                    continue
-                if compare_ops[comparison_type](value): # Perform comparison
-                    self._debug_tool.debug_log(f"Key '{key}' matches the condition: {value} {comparison_type} {threshold}.", self.isDebug)
-                    matching_keys.append(key)
+            lookup(json_data)
 
             self._log.log_msg("info", f"find_keys_by_value completed.", self.No_Log)
             self._debug_tool.debug_log(f"Matching keys: {matching_keys}", self.isDebug)
@@ -150,10 +148,8 @@ class AppCore:
             else:
                 raise KeyError(f"Key '{key}' not found in language '{lang}'. Available keys: {list(self._lang_cache[lang].keys())}")
         except Exception as e:
-            try:
-                del self._lang_cache[lang]  # Clear cache on failure
-            except KeyError:
-                self._log.log_msg("warning", f"Attempted to clear non-existent cache for language '{lang}'.", self.No_Log)
+            self._lang_cache.pop(lang, None)  # Clear cache on error
+            self._log.log_msg("error", f"Error occurred in getTextByLang: {str(e)}", self.No_Log)
             return Result(False, f"{type(e).__name__} :{str(e)}", self._exception_tracker.get_exception_location(e).data, self._exception_tracker.get_exception_info(e).data)
 
     def clear_screen(self):

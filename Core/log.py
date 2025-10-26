@@ -3,7 +3,7 @@ import logging
 import time
 import os
 from pathlib import Path
-from typing import Union
+from typing import Union, Any
 
 # internal modules
 from Core import Result
@@ -32,8 +32,9 @@ class LoggerManager:
         self._base_dir = base_dir
         self._log_filename = None
         self.second_log_dir = second_log_dir
+        self._started_time = time.strftime("%Y-%m-%d_%Hh-%Mm-%Ss", time.localtime())
 
-    def Make_logger(self, name: str="TEST"):
+    def Make_logger(self, name: str="TEST", time: Any = None) -> Result:
         """
         Create logger instance
         """
@@ -49,8 +50,7 @@ class LoggerManager:
             logger.propagate = False  # 중복 로그 출력을 방지
 
             # 로그 파일명 생성
-            today = time.strftime("%Y-%m-%d,%Hh-%Mm-%Ss", time.localtime()).split(",")
-            self._log_filename = f"{self._base_dir}/{self.second_log_dir}/{today[0]}_{today[1]}_log/{name}.log"
+            self._log_filename = f"{self._base_dir}/{self.second_log_dir}/{self._started_time if time is None else time}_log/{name}.log"
             os.makedirs(os.path.dirname(self._log_filename), exist_ok=True)
 
             # 핸들러 중복 방지
@@ -98,6 +98,7 @@ class Log:
         Initialize log class
         """
         self.logger = logger
+        self._exception_tracker = ExceptionTracker()
         self.log_levels = {
                 "info" : self.logger.info,
                 "error" : self.logger.error,

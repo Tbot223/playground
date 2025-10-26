@@ -5,7 +5,7 @@ import tempfile
 import shutil
 from typing import Any, Union, List, Tuple
 from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 # internal modules
@@ -24,7 +24,7 @@ class FileManager():
 
     2. Atomic Write: Uses temporary files to safely save files and prevent data corruption during file saving.
     """
-    def __init__(self, isTest: bool = False, isDebug: bool = False, logger = None, No_Log: bool = False, LOG_DIR: str = None,
+    def __init__(self, isTest: bool = False, isDebug: bool = False, second_log_dir: Union[str, Path] = None, logger = None, No_Log: bool = False, LOG_DIR: str = None,
                 log_class: log.Log = None, logger_manager: log.LoggerManager = None, debug_tool: DebugTool.DebugTool = None):
         """
         initialize FileManager
@@ -42,10 +42,8 @@ class FileManager():
 
         # initialize classes
         self._exception_tracker = ExceptionTracker()
-        if logger is None:
-            print("No logger provided, initializing default LoggerManager.")
-            self._LOGGER_MANAGER = logger_manager or log.LoggerManager(base_dir=self._LOG_DIR, second_log_dir="FileManagerLogs")
-            self._LOGGER_MANAGER.Make_logger("FileManager")
+        self._LOGGER_MANAGER = logger_manager or log.LoggerManager(base_dir=self._LOG_DIR, second_log_dir="FileManagerLogs")
+        self._LOGGER_MANAGER.Make_logger("FileManager")
         self._logger = logger or self._LOGGER_MANAGER.get_logger("FileManager").data
         self._log = log_class or log.Log(logger=self._logger)
         self._debug_tool = debug_tool or DebugTool.DebugTool(logger=self._logger)
@@ -63,8 +61,9 @@ class FileManager():
         """
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
                 self._log.log_msg("info", f"JSON loaded successfully from {file_path}.", self.No_Log)
-                return Result(True, None, None, json.load(f))
+                return Result(True, None, None, data)
         except (FileNotFoundError, json.JSONDecodeError) as e:
             self._log.log_msg("error", f"Error loading JSON from {file_path}: {e}", self.No_Log)
             return Result(False, f"{type(e).__name__} :{str(e)}", self._exception_tracker.get_exception_location(e).data, self._exception_tracker.get_exception_info(e).data)
@@ -102,15 +101,15 @@ class FileManager():
                 final_data = data
             
             # Perform atomic write
-            self.Atomic_write(json.dumps(final_data, ensure_ascii=False, indent=4) if serialization else json.dumps(final_data), file_path)
+            self.Atomic_write(json.dumps(final_data, ensure_ascii=False, indent=4) if serialization else json.dumps(final_data), file_path, True)
             self._log.log_msg("info", f"JSON saved successfully to {file_path}.", self.No_Log)
             return Result(True, None, None, None)
 
         except Exception as e:
             self._log.log_msg("error", f"Error saving JSON to {file_path}: {e}", self.No_Log)
             return Result(False, f"{type(e).__name__} :{str(e)}", self._exception_tracker.get_exception_location(e).data, self._exception_tracker.get_exception_info(e).data)
-                
-    def Atomic_write(self, data: Any, file_path: Union[str, Path]) -> Result:
+
+    def Atomic_write(self, data: Any, file_path: Union[str, Path], No_log: bool = False) -> Result:
         """
         Function to perform atomic write
         """
@@ -135,7 +134,7 @@ class FileManager():
             
             # Atomic move
             shutil.move(temp_file_path, file_path)
-            self._log.log_msg("info", f"File written successfully to {file_path}.", self.No_Log)
+            self._log.log_msg("info", f"File written successfully to {file_path}.", No_log or self.No_Log)
             return Result(True, None, None, None)
             
         except Exception as e:
@@ -151,48 +150,41 @@ class FileManager():
             self._log.log_msg("error", f"Atomic write failed for {file_path}. Successfully cleaned up temporary files.", self.No_Log)
             return Result(False, f"{type(e).__name__} :{str(e)}", self._exception_tracker.get_exception_location(e).data, self._exception_tracker.get_exception_info(e).data)
         
-    def batch_process_json_threaded(self, files: List[str], batch_size: int=10) -> Result:
+    def load_json_threaded(self, file_paths: List[Union[str, Path]], workers: int = 2) -> Result:
         """
-        Function to process files in batches using multithreading.
-        - files: List of file paths to process.
-        - batch_size: Number of files to process in each batch.
+        Function to load multiple JSON files using multithreading.
+        - file_paths: List of file paths to load.
+        - workers: Number of threads to use.
 
-        files example: ['path/to/file1.json', 'path/to/file2.json', ...]
+        Returns a list of Result objects corresponding to each file load operation.
         """
         try:
-            def process_batch(batch_files: List[str]) -> List[dict]:
-                results = []
-                for file in batch_files:
-                    result = self.load_json(file).data
-                    results.append(result)
-                return results
-            
-            if files is None or len(files) == 0:
-                raise ValueError("files list is empty or None.")
-            # Validate files list structure
-            if not isinstance(files, list) or not all(isinstance(file, (str, Path)) for file in files): 
-                raise ValueError("files must be a list of strings or Path objects.")
-            # Adjust batch_size if necessary
-            if batch_size <= 0:
-                batch_size = 10
-            if batch_size > len(files):
-                batch_size = len(files)
-            all_results = []
-            with ThreadPoolExecutor(max_workers=4) as executor:
-                futures = [executor.submit(process_batch, files[i:i+batch_size]) 
-                           for i in range(0, len(files), batch_size)]
-                for future in futures:
+            def process(file_path: Union[str, Path]) -> Result:
+                return self.load_json(file_path).data
+                
+            if file_paths is None or len(file_paths) == 0:
+                raise ValueError("file_paths list is empty or None.")
+            if not isinstance(file_paths, list) or not all(isinstance(fp, (str, Path)) for fp in file_paths):
+                raise ValueError("file_paths must be a list of strings or Path objects.")
+            if not isinstance(workers, int) or workers <= 0:
+                self._log.log_msg("warning", f"Invalid workers value: {workers}. Setting to default (2).", self.No_Log)
+                workers = 2
+
+            results = []
+            with ThreadPoolExecutor(max_workers=workers) as executor:
+                futures = [executor.submit(process, file_path) for file_path in file_paths]
+                for future in as_completed(futures):
                     try:
-                        all_results.extend(future.result())
+                        results.append(future.result())
                     except Exception as e:
-                        self._log.log_msg("error", f"Error processing batch: {e}", self.No_Log)
-            self._log.log_msg("info", "Batch processing of JSON files completed successfully.", self.No_Log)
-            return Result(True, None, None, all_results)
+                        self._log.log_msg("error", f"Error processing file load: {e}", self.No_Log)
+            self._log.log_msg("info", f"load_json_threaded completed successfully.", self.No_Log)
+            return Result(True, None, None, results)
         except Exception as e:
-            self._log.log_msg("error", f"Error in batch_process_json_threaded: {e}", self.No_Log)
+            self._log.log_msg("error", f"Error in load_json_threaded: {e}", self.No_Log)
             return Result(False, f"{type(e).__name__} :{str(e)}", self._exception_tracker.get_exception_location(e).data, self._exception_tracker.get_exception_info(e).data)
         
-    def batch_process_write_json_threaded(self, data_list: List[Tuple[dict, str, bool]], batch_size: int=10) -> Result:
+    def write_json_threaded(self, data_list: List[Tuple[dict, str, bool]], batch_size: int = 10, workers: int = 2) -> Result:
         """
         Function to write files in batches using multithreading.
         - data_list: List of tuples containing (data_dict, file_path, serialization).
@@ -215,15 +207,17 @@ class FileManager():
             if not isinstance(data_list, list) or not all(isinstance(item, tuple) and len(item) == 3 and isinstance(item[0], dict) and isinstance(item[1], (str, Path)) and isinstance(item[2], bool) for item in data_list): 
                 raise ValueError("data_list must be a list of tuples in the form (dict, str, bool).")
             # Adjust batch_size if necessary
-            if batch_size <= 0:
-                batch_size = 10
-            if batch_size > len(data_list):
-                batch_size = len(data_list)
+            if batch_size <= 0 or batch_size > len(data_list):
+                self._log.log_msg("warning", f"Invalid batch_size value: {batch_size}. Setting to default (10 or len(data_list)).", self.No_Log)
+                batch_size = 10 if batch_size <= 0 else len(data_list)
+            if not isinstance(workers, int) or workers <= 0:
+                self._log.log_msg("warning", f"Invalid workers value: {workers}. Setting to default (2).", self.No_Log)
+                workers = 2
             all_results = []
-            with ThreadPoolExecutor(max_workers=4) as executor:
+            with ThreadPoolExecutor(max_workers=workers) as executor:
                 futures = [executor.submit(process_batch, data_list[i:i+batch_size]) 
                            for i in range(0, len(data_list), batch_size)]
-                for future in futures:
+                for future in as_completed(futures):
                     try:
                         all_results.extend(future.result())
                     except Exception as e:
