@@ -82,13 +82,11 @@ class StorageManager:
 
         # Initialize classes
         self._exception_tracker = ExceptionTracker()
-        if logger is None:
-            self._logger_manager = logger_manager or log.LoggerManager(base_dir=self._LOG_DIR, second_log_dir="StorageManagerLogs")
-            self._logger_manager.Make_logger(name="StorageManager")
+        self._logger_manager = logger_manager or log.LoggerManager(base_dir=self._LOG_DIR, second_log_dir="StorageManagerLogs")
+        self._logger_manager.Make_logger(name="StorageManager")
         self._logger = logger or self._logger_manager.get_logger("StorageManager").data
         self._log = log_class or log.Log(self._logger)
-        self._core = appcore or AppCore.AppCore(logger=self._logger)
-        self._file_manager = filemanager or FileManager(logger=self._logger)
+        self._file_manager = filemanager or FileManager(logger_manager=self._logger_manager)
         self._debug_tool = debug_tool or DebugTool.DebugTool(logger=self._logger)
 
         # Set Variables

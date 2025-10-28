@@ -50,10 +50,8 @@ class AppCore:
         # Initialize Classes
 
         self._exception_tracker = ExceptionTracker()
-        if logger is None:
-            print("No logger provided, initializing default LoggerManager.")
-            self._LOGGER_MANAGER = logger_manager or log.LoggerManager(base_dir=self.LOG_DIR, second_log_dir="AppCoreLogs")
-            self._LOGGER_MANAGER.Make_logger("AppCore")
+        self._LOGGER_MANAGER = logger_manager or log.LoggerManager(base_dir=self.LOG_DIR, second_log_dir="AppCoreLogs")
+        self._LOGGER_MANAGER.Make_logger("AppCore")
         self._logger = logger or self._LOGGER_MANAGER.get_logger("AppCore").data
         self._debug_tool = debug_tool or DebugTool.DebugTool(logger=self._logger)
         self._log = log_class or log.Log(logger=self._logger)
