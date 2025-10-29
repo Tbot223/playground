@@ -166,3 +166,69 @@ class AppCore:
         except (subprocess.CalledProcessError, FileNotFoundError):
             # Alternative when command execution fails
             print('\n' * self.SCREEN_CLEAR_LINES)
+
+class GlobalVars:
+    """
+    The GlobalVars provide global variables.
+    """
+    def __init__(self):
+        self.exception_tracker = ExceptionTracker()
+        self.global_vars = {}
+        
+    def set(self, key: str, value: Any, overwrite: bool = True) -> Result:
+        """
+        Set global variable
+        """
+        try:
+            vars_exist = self.exists(key)
+            if not vars_exist.success:
+                raise Exception(vars_exist.message)
+            if vars_exist.data and not overwrite:
+                raise ValueError(f"Global variable with key '{key}' already exists and overwrite is set to False.")
+            self.global_vars[key] = value
+            return Result(True, None, None, True)
+        except Exception as e:
+            return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
+
+    def exists(self, key: str) -> Result:
+        """
+        Check if global variable exists
+        """
+        try:
+            exists = key in self.global_vars
+            return Result(True, None, None, exists)
+        except Exception as e:
+            return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
+        
+    def get(self, key: str) -> Result:
+        """
+        Get global variable
+        """
+        try:
+            if not self.exists(key).data:
+                raise KeyError(f"Global variable with key '{key}' does not exist.")
+            return Result(True, None, None, self.global_vars[key])
+        except Exception as e:
+            return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
+        
+    def delete(self, key: str) -> Result:
+        """
+        Delete global variable
+        """
+        try:
+            if not self.exists(key).data:
+                raise KeyError(f"Global variable with key '{key}' does not exist.")
+            del self.global_vars[key]
+            return Result(True, None, None, True)
+        except Exception as e:
+            return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
+
+    def clear(self) -> Result:
+        """
+        Clear all global variables
+        """
+        try:
+            self.global_vars.clear()
+            return Result(True, None, None, True)
+        except Exception as e:
+            return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
