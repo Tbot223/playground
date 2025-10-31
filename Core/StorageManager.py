@@ -8,7 +8,8 @@ import stat
 from pathlib import Path
 
 # internal modules
-from Core import Result, AppCore, log, DebugTool, FileManager
+from Core import Result, AppCore, DebugTool, FileManager
+from Core import LogSys as log
 from Core.Exception import ExceptionTracker
 
 # Global Variables

@@ -1,11 +1,13 @@
 # external modules
 import os
 import subprocess
-from typing import Any, Dict, List, Tuple, Union, Optional
+from typing import Any, Dict, List, Tuple, Union, Optional, Callable
 from pathlib import Path
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 # internal modules
-from Core import Result, log, DebugTool, FileManager
+from Core import Result, DebugTool, FileManager
+from Core import LogSys as log
 from Core.Exception import ExceptionTracker
 
 # Global Variables
@@ -55,7 +57,7 @@ class AppCore:
         self._logger = logger or self._LOGGER_MANAGER.get_logger("AppCore").data
         self._debug_tool = debug_tool or DebugTool.DebugTool(logger=self._logger)
         self._log = log_class or log.Log(logger=self._logger)
-        self._file_manager = filemanager or FileManager(No_Log=True, logger=self._logger)
+        self._file_manager = filemanager or FileManager(logger_manager=self._LOGGER_MANAGER)
 
         # Set variables
         self.SCREEN_CLEAR_LINES = screen_clear_lines if screen_clear_lines > 0 else 50
@@ -166,6 +168,58 @@ class AppCore:
         except (subprocess.CalledProcessError, FileNotFoundError):
             # Alternative when command execution fails
             print('\n' * self.SCREEN_CLEAR_LINES)
+
+    def multi_process_executer(self, tasks: List[Tuple[Callable, Dict]], process: int = 2, overprocess: bool = False) -> Result:
+        """
+        Function to execute multiple tasks in parallel using multiprocessing
+
+        Args:
+            tasks (List[Tuple[Callable, Dict]]): List of tuples containing function and its keyword arguments
+                - Each tuple: (function, {arg1: value1, arg2: value2, ...})
+                - function: Callable function to execute
+                - Dict: Dictionary of keyword arguments for the function ( It must be keyword arguments only. Positional arguments are not supported. )
+            process (int): Number of processes to use
+
+        Returns:
+            Result: Result object containing list of Result objects for each task ( It is guaranteed that the order of results matches the order of tasks. )
+                - example: ( WARNING: The result data is a list of Result objects. )
+                - [Result(True, None, None, result1), Result(False, "Error message", "Error location", "Error info"), ...]
+        """
+        if process < 1 or not isinstance(process, int):
+            self._log.log_msg("warning", f"Invalid process count ({process}). Defaulting to 2 processes.", self.No_Log)
+            process = 2  # Default to 2 processes if invalid
+        if process > len(tasks) and not overprocess:
+            self._log.log_msg("warning", f"Requested process count ({process}) exceeds number of tasks ({len(tasks)}). Adjusting process count to match number of tasks.", self.No_Log)
+            process = len(tasks)  # Limit to number of task
+        if len(tasks) == 0:
+            self._log.log_msg("warning", "No tasks to execute in multi_process_executer.", self.No_Log)
+            return Result(True, None, None, [])  # No tasks to execute
+        if not isinstance(tasks, list):
+            self._log.log_msg("error", "Tasks must be provided as a list of tuples in multi_process_executer.", self.No_Log)
+            return Result(False, "Tasks must be provided as a list of tuples.", None, None)
+        if not all(isinstance(t, tuple) and len(t) == 2 and callable(t[0]) and isinstance(t[1], dict) for t in tasks):
+            self._log.log_msg("error", "Each task must be a tuple of (callable, kwargs_dict) in multi_process_executer.", self.No_Log)
+            return Result(False, "Each task must be a tuple of (callable, kwargs_dict).", None, None)
+
+        try:
+            process = min(process, os.cpu_count() * 4)  # Limit process to 4 times CPU count
+            results = [None] * len(tasks)
+            with ProcessPoolExecutor(max_workers=process) as executor:
+                future_to_index = {executor.submit(func, **kwargs): idx for idx, (func, kwargs) in enumerate(tasks)}
+                
+                for future in as_completed(future_to_index):
+                    idx = future_to_index[future]
+                    try:
+                        results[idx] = future.result()
+                    except Exception as e:
+                        self._log.log_msg("error", f"Error in task {idx}: {str(e)}", self.No_Log)
+                        results[idx] = Result(False, f"{type(e).__name__} :{str(e)}", self._exception_tracker.get_exception_location(e).data, self._exception_tracker.get_exception_info(e).data)
+                        
+            self._log.log_msg("info", "multi_process_executer completed successfully.", self.No_Log)
+            return Result(True, None, None, results)
+        except Exception as e:
+            self._log.log_msg("error", f"Error occurred in multi_process_executer: {str(e)}", self.No_Log)
+            return Result(False, f"{type(e).__name__} :{str(e)}", self._exception_tracker.get_exception_location(e).data, self._exception_tracker.get_exception_info(e).data)
 
 class GlobalVars:
     """

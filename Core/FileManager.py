@@ -9,8 +9,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 # internal modules
-from Core import log, Result, DebugTool
+from Core import Result, DebugTool
 from Core.Exception import ExceptionTracker
+from Core import LogSys as log
 
 class FileManager():
     """
@@ -170,9 +171,13 @@ class FileManager():
                 self._log.log_msg("warning", f"Invalid workers value: {workers}. Setting to default (2).", self.No_Log)
                 workers = 2
 
-            results = []
+            
+
+            workers = min(workers, os.cpu_count() * 2)  # Limit workers to 2 times CPU count
+            results = [None] * len(file_paths)
             with ThreadPoolExecutor(max_workers=workers) as executor:
-                futures = [executor.submit(process, file_path) for file_path in file_paths]
+                futures = [executor.submit(process, file_path) 
+                           for idx, file_path in enumerate(file_paths)]
                 for future in as_completed(futures):
                     try:
                         results.append(future.result())
@@ -214,6 +219,8 @@ class FileManager():
                 self._log.log_msg("warning", f"Invalid workers value: {workers}. Setting to default (2).", self.No_Log)
                 workers = 2
             all_results = []
+
+            workers = min(workers, os.cpu_count() * 2)  # Limit workers to 2 times CPU count
             with ThreadPoolExecutor(max_workers=workers) as executor:
                 futures = [executor.submit(process_batch, data_list[i:i+batch_size]) 
                            for i in range(0, len(data_list), batch_size)]
