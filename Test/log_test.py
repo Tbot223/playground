@@ -6,7 +6,7 @@ import logging
 from pathlib import Path
 
 # internal modules
-from Core import log 
+from Core import LogSys as log
 
 @pytest.fixture(scope="function")
 def setup_logger(tmp_path):

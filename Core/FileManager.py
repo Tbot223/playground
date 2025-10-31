@@ -171,39 +171,44 @@ class FileManager():
                 self._log.log_msg("warning", f"Invalid workers value: {workers}. Setting to default (2).", self.No_Log)
                 workers = 2
 
-            
-
             workers = min(workers, os.cpu_count() * 2)  # Limit workers to 2 times CPU count
             results = [None] * len(file_paths)
             with ThreadPoolExecutor(max_workers=workers) as executor:
-                futures = [executor.submit(process, file_path) 
-                           for idx, file_path in enumerate(file_paths)]
+                futures = {executor.submit(process, file_path): idx for idx, file_path in enumerate(file_paths)}
+
                 for future in as_completed(futures):
                     try:
-                        results.append(future.result())
+                        idx = futures[future]
+                        results[idx] = future.result()
                     except Exception as e:
                         self._log.log_msg("error", f"Error processing file load: {e}", self.No_Log)
+                        results[idx] = Result(False, f"{type(e).__name__} :{str(e)}", self._exception_tracker.get_exception_location(e).data, self._exception_tracker.get_exception_info(e).data)
+                        
             self._log.log_msg("info", f"load_json_threaded completed successfully.", self.No_Log)
             return Result(True, None, None, results)
         except Exception as e:
             self._log.log_msg("error", f"Error in load_json_threaded: {e}", self.No_Log)
             return Result(False, f"{type(e).__name__} :{str(e)}", self._exception_tracker.get_exception_location(e).data, self._exception_tracker.get_exception_info(e).data)
-        
-    def write_json_threaded(self, data_list: List[Tuple[dict, str, bool]], batch_size: int = 10, workers: int = 2) -> Result:
+
+    def write_json_threaded(self, data_list: List[Tuple[dict, str, bool]], batch_size: int = 10, base_path: Union[str, Path] = None, workers: int = 2) -> Result:
         """
         Function to write files in batches using multithreading.
         - data_list: List of tuples containing (data_dict, file_path, serialization).
         - batch_size: Number of files to write in each batch.
         - serialization: Whether to serialize JSON with indentation.
 
-        data_list example: [(data1, 'path/to/file1.json', True), (data2, 'path/to/file2.json', False), ...]
+        data_list example: [(data1, 'file1.json', True), (data2, 'file2.json', False), ...]
         """
         try:
             def process_batch(batch_data: List[Tuple[dict, Union[str, Path], bool]]) -> Result:
                 results = []
-                for data, file_path, serialization in batch_data:
-                    result = self.save_json(data, file_path, serialization=serialization)
-                    results.append(result)
+                for data, file_name, serialization in batch_data:
+                    try:
+                        result = self.save_json(data, file_name, serialization=serialization)
+                        results.append(result)
+                    except Exception as e:
+                        self._log.log_msg("error", f"Error processing file {file_name}: {e}", self.No_Log)
+                        results.append(Result(False, f"{type(e).__name__} :{str(e)}", self._exception_tracker.get_exception_location(e).data, self._exception_tracker.get_exception_info(e).data))
                 return results
             
             if data_list is None or len(data_list) == 0:
@@ -218,17 +223,20 @@ class FileManager():
             if not isinstance(workers, int) or workers <= 0:
                 self._log.log_msg("warning", f"Invalid workers value: {workers}. Setting to default (2).", self.No_Log)
                 workers = 2
-            all_results = []
 
             workers = min(workers, os.cpu_count() * 2)  # Limit workers to 2 times CPU count
+            batch_tasks = [data_list[i:i + batch_size] for i in range(0, len(data_list), batch_size)]
             with ThreadPoolExecutor(max_workers=workers) as executor:
-                futures = [executor.submit(process_batch, data_list[i:i+batch_size]) 
-                           for i in range(0, len(data_list), batch_size)]
+                futures = {executor.submit(process_batch, batch): idx for idx, batch in enumerate(batch_tasks)}
+                all_results = [None] * len(futures)
+
                 for future in as_completed(futures):
+                    idx = futures[future]
                     try:
-                        all_results.extend(future.result())
+                        all_results[idx] = future.result()
                     except Exception as e:
-                        self._log.log_msg("error", f"Error processing batch: {e}", self.No_Log)
+                        self._log.log_msg("error", f"An error occurred while processing the results. index: {idx}, Details: {e}", self.No_Log)
+                        all_results[idx] = [Result(False, f"{type(e).__name__} :{str(e)}", self._exception_tracker.get_exception_location(e).data, self._exception_tracker.get_exception_info(e).data)]
             return Result(True, None, None, all_results)
         except Exception as e:
             self._log.log_msg("error", f"Error in batch_process_write_json_threaded: {e}", self.No_Log)
