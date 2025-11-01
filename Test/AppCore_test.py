@@ -5,7 +5,8 @@ import sys
 import os
 
 # internal modules
-from Core import AppCore, FileManager, log
+from Core import AppCore, FileManager
+from Core import LogSys as log
 from Core import ExceptionTracker
 
 
