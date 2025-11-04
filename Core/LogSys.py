@@ -74,9 +74,9 @@ class LoggerManager:
         except Exception as e:
             return Result(False, f"{type(e).__name__} :{str(e)}", self._exception_tracker.get_exception_location(e).data, self._exception_tracker.get_exception_info(e).data)
 
-    def get_logger(self, name="TEST") -> logging.Logger:
+    def get_logger(self, name="TEST") -> Result:
         """
-        Return logger object
+        Return logger object (Result.data contains logger object)
         """
         try:
             if name not in self._loggers:

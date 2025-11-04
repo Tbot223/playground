@@ -351,7 +351,7 @@ class StorageManager:
             latest_time = 0
             for save in saves.data:
                 metadata = self.load_metadata(save)
-                if isinstance(metadata, tuple) and metadata.success is False:
+                if isinstance(metadata.data, dict) and metadata.success is False:
                     raise ValueError(f"Failed to load metadata for save: {save}")
                 timestamp_str = metadata.data.get("timestamp", "")
 
