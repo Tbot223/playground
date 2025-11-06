@@ -1,0 +1,145 @@
+#external Modules
+import os
+from typing import List, Union, Any, Dict, Tuple
+from pathlib import Path
+import tempfile
+import json
+
+#internal Modules
+from CoreV2.Result import Result
+from CoreV2.Exception import ExceptionTracker
+
+class FileManager:
+    """
+    """
+
+    def __init__(self):
+        self._BASE_DIR = Path(__file__).resolve().parent.parent
+
+        #set Flag
+        self.is_logging_enabled = True
+        self.is_debug_enabled = True
+
+        #initialize Classes
+        self._exception_tracker = ExceptionTracker()
+
+    def atomic_write(self, file_path: Union[str, Path], data: Any) -> Result:
+        """
+        Atomically write "data" to "file_path"
+
+        - If data is bytes, write in binary mode; if str, write in text mode with utf-8 encoding.
+        - Use a temporary file in the same directory and rename it to ensure atomicity.
+        - Ensure that the parent directory of file_path exists; create it if it does not.
+        - Flush and sync data to disk before renaming to minimize data loss risk.
+        """
+        try:
+            temp_path = None
+            if isinstance(file_path, str):
+                file_path = Path(file_path)
+            if not file_path.parent.exists():
+                file_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            is_bytes = isinstance(data, bytes)
+            mode = 'wb' if is_bytes else 'w'
+            encoding = None if is_bytes else 'utf-8'
+
+            with tempfile.NamedTemporaryFile(mode, delete=False, dir=str(file_path.parent), encoding=encoding) as temp:
+                temp_path = Path(temp.name)
+                temp.write(data)
+                temp.flush()
+                try:
+                    os.fsync(temp.fileno())
+                except (AttributeError, OSError):
+                    pass  # os.fsync not available on some platforms
+
+                os.replace(temp_path, file_path)
+            return Result(True, None, None, f"Successfully wrote to {file_path}")
+                
+        except Exception as e:
+            if os.path.exists(temp_path):
+                os.unlink(temp_path)
+            return self._exception_tracker.get_exception_return(e)
+        
+    def read_file(self, file_path: Union[str, Path], as_bytes: bool=False) -> Result:
+        """
+        Read the content of the file at "file_path"
+
+        - If as_bytes is True, read in binary mode; otherwise, read in text mode with utf-8 encoding.
+        - Return the content in the data field of the Result object.
+        """
+        try:
+            if isinstance(file_path, str):
+                file_path = Path(file_path)
+
+            mode = 'rb' if as_bytes else 'r'
+            encoding = None if as_bytes else 'utf-8'
+
+            with open(file_path, mode, encoding=encoding) as f:
+                content = f.read()
+            return Result(True, None, None, content)
+
+        except Exception as e:
+            return self._exception_tracker.get_exception_return(e)
+        
+    def write_json(self, file_path: Union[str, Path], data: Any, indent: int=4) -> Result:
+        """
+        Write JSON serializable "data" to "file_path" in JSON format
+
+        - Use atomic_write to ensure atomicity.
+        - Pretty-print JSON with specified indentation.
+        """
+        try:
+            json_data = json.dumps(data, indent=indent, ensure_ascii=False)
+            write_result = self.atomic_write(file_path, json_data)
+            if not write_result.success:
+                return write_result
+            return Result(True, None, None, f"Successfully wrote JSON to {file_path}")
+        except Exception as e:
+            return self._exception_tracker.get_exception_return(e)
+        
+    def read_json(self, file_path: Union[str, Path]) -> Result:
+        """
+        Read JSON content from "file_path" and parse it into a Python object
+
+        - Return the parsed object in the data field of the Result object.
+        """
+        try:
+            if file_path.exists() is False:
+                raise FileNotFoundError(f"File not found: {file_path}")
+            if file_path.suffix.lower() != '.json':
+                raise ValueError("File extension is not .json")
+
+            read_result = self.read_file(file_path, as_bytes=False)
+            if not read_result.success:
+                return read_result
+            return Result(True, None, None, read_result.data)
+        except Exception as e:
+            return self._exception_tracker.get_exception_return(e)
+        
+    def list_of_files(self, dir_path: Union[str, Path], extension: str=None, only_name: bool = False) -> Result:
+        """
+        List all files in the directory at "dir_path"
+
+        - If "extension" is provided, filter files by the given extension (case-insensitive).
+        - Return the list of file paths in the data field of the Result object.
+        - If only_name is True, return only file names instead of full paths.
+        """
+        try:
+            if isinstance(dir_path, str):
+                dir_path = Path(dir_path)
+            if not dir_path.is_dir():
+                raise NotADirectoryError(f"Not a directory: {dir_path}")
+
+            def is_matching_file(item: Path) -> bool:
+                if os.path.isfile(item):
+                    if extension is None or item.suffix.lower() == extension.lower():
+                        return item.stem if only_name else str(item)
+
+            files = []
+            for item in dir_path.iterdir():
+                is_matching_file(item)
+                files.append(is_matching_file(item))
+
+            return Result(True, None, None, files)
+        except Exception as e:
+            return self._exception_tracker.get_exception_return(e)

@@ -19,7 +19,7 @@ def main():
     file_paths = [f"{bp}/tmp.txt", f"{bp}/tmp2.txt", f"{bp}/tmp3.txt", f"{bp}/tmp4.txt"]
 
     tasks = [(count_word_in_file, {'file_path': path}) for path in file_paths]
-    result = app_core.multi_process_executer(tasks, process=2)
+    result = app_core.multi_process_executer(tasks, process=1)
     result = ", ".join(str(n) for n in result.data)
     log.log_msg("info", f"Word count results: {result}", False)
 
