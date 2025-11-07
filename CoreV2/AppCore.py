@@ -34,10 +34,11 @@ class AppCore:
         # Initialize internal variables
         self._lang_cache = {}
         self._default_lang = "en"
-        self._supported_langs = self._file_manager.list_of_files(self._LANG_DIR, extensions=['.json'], only_name=True)
+        self._supported_langs = self._file_manager.list_of_files(self._LANG_DIR, extensions=['.json'], only_name=True).data
 
     # internal Methods
-    def _check_executable(self, data: List[Tuple[Callable[ ... , Any], Dict]], workers: int, override: bool, timeout: float) -> bool:
+    @staticmethod
+    def _check_executable(data: List[Tuple[Callable[ ... , Any], Dict]], workers: int, override: bool, timeout: float) -> Union[bool, str]:
         """
         Check if the functions in data and workers are valid for execution.
         """
@@ -54,14 +55,14 @@ class AppCore:
             return False, "timeout must be a positive number"
         return True
     
-    def _generic_executor(self, data: List[Tuple[Callable[ ... , Any], Dict]], workers: int, timeout: float) -> List[Result]:
+    def _generic_executor(self, data: List[Tuple[Callable[ ... , Any], Dict]], workers: int, timeout: float, type: str) -> List[Result]:
         """
         Generic executor method to be used by both thread and process pool executors.
         """
         results = [None] * len(data)
 
-        executor_type = ThreadPoolExecutor if workers['type'] == 'thread' else ProcessPoolExecutor
-        let_as_completed = as_completed if workers['type'] == 'thread' else pc_as_completed
+        executor_type = ThreadPoolExecutor if type == 'thread' else ProcessPoolExecutor
+        let_as_completed = as_completed if type == 'thread' else pc_as_completed
         with executor_type(workers=workers) as executor:
             future_to_task = {executor.submit(func, **params): idx for idx, (func, params) in enumerate(data)}
 
@@ -84,7 +85,7 @@ class AppCore:
             if isinstance(value, str, bool) == isinstance(threshold, str, bool) and comparison_type in ['eq', 'ne']:
                 if comparison_func(value):
                     found_keys.append(key)
-            if isinstance(value, (Tuple, List)):
+            if isinstance(value, (tuple, list)):
                 continue
             if comparison_func(value):
                 found_keys.append(key)
@@ -149,7 +150,7 @@ class AppCore:
         try:
             if comparison not in comparison_operators:
                 raise ValueError(f"Unsupported comparison operator: {comparison}")
-            if isinstance(dict_obj, Dict) is False:
+            if isinstance(dict_obj, dict) is False:
                 raise ValueError("Input is not a dictionary")
             if isinstance(threshold, (str, bool, int, float)) is False:
                 raise ValueError("Threshold must be of type str, bool, int, or float")

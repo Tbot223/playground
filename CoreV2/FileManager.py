@@ -4,6 +4,8 @@ from typing import List, Union, Any, Dict, Tuple
 from pathlib import Path
 import tempfile
 import json
+import shutil
+import stat
 
 #internal Modules
 from CoreV2.Result import Result
@@ -23,6 +25,25 @@ class FileManager:
         #initialize Classes
         self._exception_tracker = ExceptionTracker()
 
+    # internal Methods
+    @staticmethod
+    def _handle_exc(func, path, exc_info):
+        os.chmod(path, stat.S_IWRITE)
+        func(path)
+
+    @staticmethod
+    def _str_to_path(path: Any) -> Path:
+        """
+        Convert string path to Path object
+        """
+        if isinstance(path, str):
+            return Path(path)
+        elif isinstance(path, Path):
+            return path
+        else:
+            raise TypeError("path must be a string or Path object")
+            
+
     def atomic_write(self, file_path: Union[str, Path], data: Any) -> Result:
         """
         Atomically write "data" to "file_path"
@@ -34,8 +55,7 @@ class FileManager:
         """
         try:
             temp_path = None
-            if isinstance(file_path, str):
-                file_path = Path(file_path)
+            file_path = self._str_to_path(file_path)
             if not file_path.parent.exists():
                 file_path.parent.mkdir(parents=True, exist_ok=True)
             
@@ -52,12 +72,15 @@ class FileManager:
                 except (AttributeError, OSError):
                     pass  # os.fsync not available on some platforms
 
-                os.replace(temp_path, file_path)
+            os.replace(temp_path, file_path)
             return Result(True, None, None, f"Successfully wrote to {file_path}")
                 
         except Exception as e:
-            if os.path.exists(temp_path):
-                os.unlink(temp_path)
+            try:
+                if os.path.exists(temp_path):
+                    os.unlink(temp_path)
+            except Exception:
+                pass
             return self._exception_tracker.get_exception_return(e)
         
     def read_file(self, file_path: Union[str, Path], as_bytes: bool=False) -> Result:
@@ -68,8 +91,7 @@ class FileManager:
         - Return the content in the data field of the Result object.
         """
         try:
-            if isinstance(file_path, str):
-                file_path = Path(file_path)
+            file_path = self._str_to_path(file_path)
 
             mode = 'rb' if as_bytes else 'r'
             encoding = None if as_bytes else 'utf-8'
@@ -89,6 +111,7 @@ class FileManager:
         - Pretty-print JSON with specified indentation.
         """
         try:
+            file_path = self._str_to_path(file_path)
             json_data = json.dumps(data, indent=indent, ensure_ascii=False)
             write_result = self.atomic_write(file_path, json_data)
             if not write_result.success:
@@ -104,6 +127,7 @@ class FileManager:
         - Return the parsed object in the data field of the Result object.
         """
         try:
+            file_path = self._str_to_path(file_path)
             if file_path.exists() is False:
                 raise FileNotFoundError(f"File not found: {file_path}")
             if file_path.suffix.lower() != '.json':
@@ -125,21 +149,71 @@ class FileManager:
         - If only_name is True, return only file names instead of full paths.
         """
         try:
-            if isinstance(dir_path, str):
-                dir_path = Path(dir_path)
+            dir_path = self._str_to_path(dir_path)
             if not dir_path.is_dir():
                 raise NotADirectoryError(f"Not a directory: {dir_path}")
 
-            def is_matching_file(item: Path) -> bool:
+            def is_matching_file(item: Path) -> str:
                 if os.path.isfile(item):
-                    if extension is None or item.suffix.lower() == extension.lower():
-                        return item.stem if only_name else str(item)
+                    return
+                if extension is None or item.suffix.lower() == extension.lower():
+                    return item.stem if only_name else str(item)
 
             files = []
             for item in dir_path.iterdir():
-                is_matching_file(item)
                 files.append(is_matching_file(item))
 
             return Result(True, None, None, files)
+        except Exception as e:
+            return self._exception_tracker.get_exception_return(e)
+        
+    def delete_file(self, file_path: Union[str, Path]) -> Result:
+        """
+        Delete the file at "file_path"
+        """
+        try:
+            file_path = self._str_to_path(file_path)
+            if not file_path.exists():
+                raise FileNotFoundError(f"File not found: {file_path}")
+            try:
+                file_path.unlink()
+            except PermissionError:
+                os.chmod(file_path, stat.S_IWRITE)
+                file_path.unlink()
+
+            return Result(True, None, None, f"Successfully deleted {file_path}")
+        except Exception as e:
+            return self._exception_tracker.get_exception_return(e)
+        
+    def delete_directory(self, dir_path: Union[str, Path]) -> Result:
+        """
+        Delete the directory at "dir_path" and all its contents
+        """
+        try:
+            dir_path = self._str_to_path(dir_path)
+            if not dir_path.exists():
+                raise FileNotFoundError(f"Directory not found: {dir_path}")
+            if not dir_path.is_dir():
+                raise NotADirectoryError(f"Not a directory: {dir_path}")
+
+            try:
+                shutil.rmtree(dir_path)
+            except PermissionError:
+                shutil.rmtree(dir_path, onexc=self._handle_exc)
+
+            return Result(True, None, None, f"Successfully deleted directory {dir_path}")
+        except Exception as e:
+            return self._exception_tracker.get_exception_return(e)
+        
+    def create_directory(self, dir_path: Union[str, Path]) -> Result:
+        """
+        Create the directory at "dir_path"
+
+        - If the directory already exists, do nothing.
+        """
+        try:
+            dir_path = self._str_to_path(dir_path)
+            dir_path.mkdir(parents=True, exist_ok=True)
+            return Result(True, None, None, f"Successfully created directory {dir_path}")
         except Exception as e:
             return self._exception_tracker.get_exception_return(e)
