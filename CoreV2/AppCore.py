@@ -1,6 +1,7 @@
 #external Modules
 import os
 import subprocess
+import sys
 from typing import Any, Callable, List, Dict, Tuple, Union, Optional
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -204,5 +205,15 @@ class AppCore:
         """
         try:
             os._exit(code)
+        except Exception as e:
+            return self._exception_tracker.get_exception_return(e)
+    
+    def restart_application(self) -> Result:
+        """
+        Restart the current application.
+        """
+        try:
+            python = sys.executable
+            os.execl(python, python, * sys.argv)
         except Exception as e:
             return self._exception_tracker.get_exception_return(e)
