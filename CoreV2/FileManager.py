@@ -10,6 +10,7 @@ import stat
 #internal Modules
 from CoreV2.Result import Result
 from CoreV2.Exception import ExceptionTracker
+from CoreV2 import Utils
 
 class FileManager:
     """
@@ -24,6 +25,7 @@ class FileManager:
 
         #initialize Classes
         self._exception_tracker = ExceptionTracker()
+        self._utils = Utils.Utils()
 
     # internal Methods
     @staticmethod
@@ -31,17 +33,11 @@ class FileManager:
         os.chmod(path, stat.S_IWRITE)
         func(path)
 
-    @staticmethod
-    def _str_to_path(path: Any) -> Path:
+    def _str_to_path(self, path: Any) -> Path:
         """
         Convert string path to Path object
         """
-        if isinstance(path, str):
-            return Path(path)
-        elif isinstance(path, Path):
-            return path
-        else:
-            raise TypeError("path must be a string or Path object")
+        return self._utils.str_to_path(path)
             
 
     def atomic_write(self, file_path: Union[str, Path], data: Any) -> Result:
