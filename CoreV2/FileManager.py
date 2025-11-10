@@ -213,3 +213,10 @@ class FileManager:
             return Result(True, None, None, f"Successfully created directory {dir_path}")
         except Exception as e:
             return self._exception_tracker.get_exception_return(e)
+        
+    # __enter__ and __exit__
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, exc_type, exc_value, traceback):
+        pass
