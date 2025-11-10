@@ -33,6 +33,8 @@ class NameDecorator:
     """
     Placeholder class for NameDecorator in CoreV2.
     Currently, no functionality is implemented here.
+
+    This class provides "with NameDecorator() as nd:" context management to register and unregister objects by name. The exit method will unregister all registered objects.
     """
     
     def __init__(self):
