@@ -26,7 +26,7 @@ class AppCore:
         self._LANG_DIR = self._PARENT_DIR / "Languages"
 
         # Initialize classes
-        self._file_manager  = FileManager.FileManager()
+        self._file_manager  = filemanager or FileManager.FileManager()
         self._exception_tracker = ExceptionTracker()
 
         # Initialize Flags
@@ -76,13 +76,13 @@ class AppCore:
                     results[idx] = self._exception_tracker.get_exception_return(e, params=data[idx][1])
         return results
     
-    def _lookup_dict(self, dict_obj: Dict, threshold: Union[int, float, str, bool], comparison_func: Callable, comparison_type: str,nested: bool) -> List:
+    def _lookup_dict(self, dict_obj: Dict, threshold: Union[int, float, str, bool], comparison_func: Callable, comparison_type: str, nested: bool) -> List:
         """
         Helper method to recursively look up keys in a dictionary based on a comparison function.
         """
         found_keys = []
         for key, value in dict_obj.items():
-            if isinstance(value, str, bool) == isinstance(threshold, str, bool) and comparison_type in ['eq', 'ne']:
+            if isinstance(value, (str, bool)) == isinstance(threshold, str, bool) and comparison_type in ['eq', 'ne']:
                 if comparison_func(value):
                     found_keys.append(key)
             if isinstance(value, (tuple, list)):

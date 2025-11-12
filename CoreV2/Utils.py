@@ -1,5 +1,8 @@
 # external Modules
 from pathlib import Path
+from typing import Any, Tuple, Optional
+import time
+import hashlib, secrets
 
 # internal Modules
 from CoreV2.Result import Result
@@ -14,7 +17,22 @@ class Utils:
     def __init__(self):
         self ._exception_tracker = ExceptionTracker()
 
+        self.DEFULT_ITERATIONS = 300000
+        self.DEFAULT_SALT_SIZE = 32
+
     # Internal Methods
+    def _check_pdkdf2_params(self, password: str, algorithm: str, iterations: int, salt_size: int = 32) -> None:
+        """
+        Check parameters for PBKDF2 HMAC functions.
+        """
+        if not isinstance(password, str):
+            raise ValueError("password must be a string")
+        if algorithm not in ['sha1', 'sha256', 'sha512']:
+            raise ValueError("Unsupported algorithm. Supported algorithms: 'sha1', 'sha256', 'sha512'")
+        if not isinstance(iterations, int) or iterations <= 0:
+            raise ValueError("iterations must be a positive integer")
+        if not isinstance(salt_size, int) or salt_size <= 0:
+            raise ValueError("salt_size must be a positive integer")
 
     # external Methods
     def str_to_path(self, path_str: str) -> Path:
@@ -28,13 +46,103 @@ class Utils:
             return Result(True, None, None, Path(path_str))
         except Exception as e:
             return self._exception_tracker.get_exception_return(e)
+        
+    def encrypt(self, data: str, algorithm: str='sha256') -> Result:
+        """
+        Encrypt a string using the specified algorithm.
+        Supported algorithms: 'md5', 'sha1', 'sha256', 'sha512'
+        """
+        try:
+            if not isinstance(data, str):
+                raise ValueError("data must be a string")
+            if algorithm not in ['md5', 'sha1', 'sha256', 'sha512']:
+                raise ValueError("Unsupported algorithm. Supported algorithms: 'md5', 'sha1', 'sha256', 'sha512'")
+
+            hash_func = getattr(hashlib, algorithm)()
+            hash_func.update(data.encode('utf-8'))
+            encrypted_data = hash_func.hexdigest()
+            return Result(True, None, None, encrypted_data)
+        except Exception as e:
+            return self._exception_tracker.get_exception_return(e)
+        
+    def pbkdf2_hmac(self, password: str, algorithm: str, iterations: int, salt_size: int) -> Result:
+        """
+        Generate a PBKDF2 HMAC hash of the given password.
+        Supported algorithms: 'sha1', 'sha256', 'sha512'
+
+        This function returns a dict containing the salt (hex), hash (hex), iterations, and algorithm used.
+        """
+        try:
+            self._check_pdkdf2_params(password, algorithm, iterations, salt_size)
+            
+            salt = secrets.token_bytes(salt_size)
+            hash_bytes = hashlib.pbkdf2_hmac(algorithm, password.encode('utf-8'), salt, iterations)
+
+            salt_hex = salt.hex()
+            hash_hex = hash_bytes.hex()
+            result = {
+                "salt_hex": salt_hex,
+                "hash_hex": hash_hex,
+                "iterations": iterations,
+                "algorithm": algorithm
+            }
+
+            return Result(True, None, None, result)
+        except Exception as e:
+            return self._exception_tracker.get_exception_return(e)
+        
+    def verify_pbkdf2_hmac(self, password: str, salt_hex: str, hash_hex: str, iterations: int, algorithm: str) -> Result:
+        """
+        Verify a PBKDF2 HMAC hash of the given password.
+        Supported algorithms: 'sha1', 'sha256', 'sha512'
+
+        This function returns True if the password matches the hash, False otherwise.
+        """
+        try:
+            self._check_pdkdf2_params(password, algorithm, iterations)
+            if not isinstance(salt_hex, str) or not isinstance(hash_hex, str):
+                raise ValueError("salt_hex and hash_hex must be strings")
+            
+            salt = bytes.fromhex(salt_hex)
+            hash_bytes = hashlib.pbkdf2_hmac(algorithm, password.encode('utf-8'), salt, iterations)
+            computed_hash_hex = hash_bytes.hex()
+
+            is_valid = computed_hash_hex == hash_hex
+            return Result(True, None, None, is_valid)
+        except Exception as e:
+            return self._exception_tracker.get_exception_return(e)
+        
+class DecoratorUtils:
+    """
+    Placeholder class for DecoratorUtils in CoreV2.
+    Currently, no functionality is implemented here.
+    """
+    
+    def __init__(self):
+        self ._exception_tracker = ExceptionTracker()
+
+    # Internal Methods
+
+    # external Methods
+    def conut_runtime(self):
+        """
+        Decorator to measure and print the execution time of a function
+        """
+        def decorator(func):
+            def wrapper(*args, **kwargs):
+                start_time = time.time()
+                result = func(*args, **kwargs)
+                end_time = time.time()
+                run_time = end_time - start_time
+                print(f"This ran for {run_time:.4f} seconds.")
+                return result
+            return wrapper
+        return decorator
 
 class NameDecorator:
     """
     Placeholder class for NameDecorator in CoreV2.
     Currently, no functionality is implemented here.
-
-    This class provides "with NameDecorator() as nd:" context management to register and unregister objects by name. The exit method will unregister all registered objects.
     """
     
     def __init__(self):
@@ -43,7 +151,8 @@ class NameDecorator:
         self.names = {}
 
     # Internal Methods
-    def _to_pascal(self, name: str) -> str:
+    @staticmethod
+    def _to_pascal(name: str) -> str:
         """
         Convert name to PascalCase.
         """
@@ -52,20 +161,22 @@ class NameDecorator:
         return pascal_name
 
     # external Methods
-    def register(self, name: str, obj: object) -> Result:
+    def register(self, name: str, obj: object, manual_name: bool=False) -> Result:
         """
         Register an object with a name.
         """
         try:
             if not isinstance(name, str):
                 raise ValueError("name must be a string")
+            changed_name = self._to_pascal(name) if not manual_name else name
+            if hasattr(self, changed_name):
+                raise ValueError(f"An object is already registered with the name '{changed_name}'")
             if hasattr(self, name):
-                raise ValueError(f"An object with name '{name}' is already registered.")
+                raise ValueError(f"An object is already registered with the name '{name}'")
             
-            pascal_name = self._to_pascal(name)
-            self.names[pascal_name] = name
-            super().__setattr__(name, obj)
-            return Result(True, None, None, f"Object registered with name '{name}'")
+            self.names[changed_name] = f"{obj=}".split('=')[0]
+            super().__setattr__(changed_name, obj)
+            return Result(True, None, None, f"Object registered with name '{changed_name}' ( original name: '{name}' )")
         except Exception as e:
             return self._exception_tracker.get_exception_return(e)
     
@@ -111,13 +222,97 @@ class NameDecorator:
             return super().__getattribute__(name)
         except Exception as e:
             return self._exception_tracker.get_exception_return(e)
-        
-    def __enter__(self):
-        return self
     
-    def __exit__(self, exc_type, exc_value, traceback):
-        for name in list(self.__dict__.keys()):
-            if not name.startswith('_'):
+class GlobalVars:
+    """
+    Placeholder class for GlobalVars in CoreV2.
+    Currently, no functionality is implemented here.
+    """
+    
+    def __init__(self, exit_unregister: bool=True):
+        self ._exception_tracker = ExceptionTracker()
+        
+    def set(self, key: str, value: object, overwrite: bool=False) -> Result:
+        try:
+            if hasattr(self, key) and not overwrite:
+                raise KeyError(f"Global variable '{key}' already exists.")
+            
+            super().__setattr__(key, value)
+            return Result(True, None, None, f"Global variable '{key}' set.")
+        except Exception as e:
+            return self._exception_tracker.get_exception_return(e)
+        
+    def get(self, key: str) -> Result:
+        """
+        Get a global variable.
+        """
+        try:
+            if not self.exists(key):
+                raise KeyError(f"Global variable '{key}' does not exist.")
+            return Result(True, None, None, super().__getattribute__(key))
+        except Exception as e:
+            return self._exception_tracker.get_exception_return(e)
+        
+    def delete(self, key: str) -> Result:
+        """
+        Delete a global variable.
+        """
+        try:
+            if not self.exists(key):
+                raise KeyError(f"Global variable '{key}' does not exist.")
+            
+            super().__delattr__(key)
+            return Result(True, None, None, f"Global variable '{key}' deleted.")
+        except Exception as e:
+            return self._exception_tracker.get_exception_return(e)
+        
+    def clear(self) -> Result:
+        """
+        Clear all global variables.
+        """
+        try:
+            for name in list(vars(self).keys()):
+                if name.startswith('_'):
+                    continue
                 super().__delattr__(name)
-        self .names.clear()
-        return False
+            return Result(True, None, None, "All global variables cleared.")
+        except Exception as e:
+            return self._exception_tracker.get_exception_return(e)
+        
+    def list_vars(self) -> Result:
+        """
+        List all global variables.
+        """
+        try:
+            return Result(True, None, None, list(vars(self).keys()))
+        except Exception as e:
+            return self._exception_tracker.get_exception_return(e)
+        
+    def exists(self, key: str) -> Result:
+        """
+        Check if a global variable exists.
+        """
+        try:
+            exists = hasattr(self, key)
+            return Result(True, None, None, exists)
+        except Exception as e:
+            return self._exception_tracker.get_exception_return(e)
+        
+    def __getattr__(self, name):
+        """
+        Get a global variable by attribute access.
+        """
+        try:
+            self.exists(name)
+            return super().__getattribute__(name)
+        except Exception as e:
+            return self._exception_tracker.get_exception_return(e)
+        
+    def __setattr__(self, name, value):
+        """
+        Set a global variable by attribute access.
+        """
+        try:
+            super().__setattr__(name, value)
+        except Exception as e:
+            return self._exception_tracker.get_exception_return(e)
