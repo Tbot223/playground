@@ -229,7 +229,7 @@ class GlobalVars:
     Currently, no functionality is implemented here.
     """
     
-    def __init__(self, exit_unregister: bool=True):
+    def __init__(self):
         self ._exception_tracker = ExceptionTracker()
         
     def set(self, key: str, value: object, overwrite: bool=False) -> Result:
@@ -314,5 +314,18 @@ class GlobalVars:
         """
         try:
             super().__setattr__(name, value)
+        except Exception as e:
+            return self._exception_tracker.get_exception_return(e)
+        
+    def __call__(self, key: str, value: Optional[object]=None, overwrite: bool=False) -> Result:
+        """
+        Get or set a global variable using call syntax.
+        If value is provided, set the variable; otherwise, get it.
+        """
+        try:
+            if value is not None:
+                return self.set(key, value, overwrite)
+            else:
+                return self.get(key)
         except Exception as e:
             return self._exception_tracker.get_exception_return(e)
