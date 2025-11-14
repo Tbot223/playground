@@ -117,9 +117,10 @@ class DecoratorUtils:
     Placeholder class for DecoratorUtils in CoreV2.
     Currently, no functionality is implemented here.
     """
+    _exception_tracker = ExceptionTracker()
     
     def __init__(self):
-        self ._exception_tracker = ExceptionTracker()
+        pass
 
     # Internal Methods
 
@@ -136,6 +137,20 @@ class DecoratorUtils:
                 run_time = end_time - start_time
                 print(f"This ran for {run_time:.4f} seconds.")
                 return result
+            return wrapper
+        return decorator
+    
+    @classmethod
+    def exception_handler(cls, user_input: Any=None, params: dict=None):
+        """
+        Decorator to handle exceptions in a function using ExceptionTracker
+        """
+        def decorator(func):
+            def wrapper(*args, **kwargs):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    return cls._exception_tracker.get_exception_return(e, user_input, params)
             return wrapper
         return decorator
 
