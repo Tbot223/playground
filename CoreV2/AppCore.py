@@ -10,7 +10,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed as pc_as_comple
 #internal Modules
 from CoreV2.Result import Result
 from CoreV2.Exception import ExceptionTracker
-from CoreV2 import FileManager
+from CoreV2 import FileManager, LogSys
 
 class AppCore:
     """
@@ -18,24 +18,36 @@ class AppCore:
     Currently, no functionality is implemented here.
     """
     
-    def __init__(self, 
-                filemanager: FileManager.FileManager):
+    def __init__(self, is_logging_enabled: bool=True, is_debug_enabled: bool=False,
+                 base_dir: Union[str, Path]=None,
+                 logger_manager_instance: LogSys.LoggerManager=None, logger: Any=None, log_instance: LogSys.Log=None,
+                 filemanager: FileManager.FileManager=None):
 
         # Initialize paths
-        self._PARENT_DIR = Path(__file__).resolve().parent.parent
-        self._LANG_DIR = self._PARENT_DIR / "Languages"
-
-        # Initialize classes
-        self._file_manager  = filemanager or FileManager.FileManager()
-        self._exception_tracker = ExceptionTracker()
+        self._PARENT_DIR = base_dir or Path(__file__).resolve().parent.parent
+        self._LANG_DIR = self._PARENT_DIR / "Languages"    
 
         # Initialize Flags
-
+        self.is_logging_enabled = is_logging_enabled
+        self.is_debug_enabled = is_debug_enabled
+        # Initialize classes
+        self._exception_tracker = ExceptionTracker()
+        self._logger_manager = None
+        self.logger = None
+        if self.is_logging_enabled:
+            self._logger_manager = logger_manager_instance or LogSys.LoggerManager(base_dir=self._PARENT_DIR / "logs", second_log_dir="app_core")
+            self._logger_manager.make_logger("AppCoreLogger")
+            self.logger = logger or self._logger_manager.get_logger("AppCoreLogger")
+        self.log = log_instance or LogSys.Log(logger=self.logger)
+        self._file_manager  = filemanager or FileManager.FileManager(is_logging_enabled=False, base_dir=self._PARENT_DIR)
+        
         # Initialize internal variables
         self._lang_cache = {}
         self._default_lang = "en"
         self._supported_langs = self._file_manager.list_of_files(self._LANG_DIR, extensions=['.json'], only_name=True).data
 
+        self.log.log_message("INFO", f"AppCore initialized. Supported languages: {self._supported_langs}")
+    
     # internal Methods
     @staticmethod
     def _check_executable(data: List[Tuple[Callable[ ... , Any], Dict]], workers: int, override: bool, timeout: float) -> Union[bool, str]:

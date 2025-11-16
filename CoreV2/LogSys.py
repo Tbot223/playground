@@ -48,7 +48,7 @@ class LoggerManager:
             logger.propagate = False  # Prevent duplicate log output
 
             # Create a log file
-            log_filename = self._BASE_DIR / self.second_log_dir / f"{logger_name}_{self._started_time}.log"
+            log_filename = self._BASE_DIR / self.second_log_dir / f"{logger_name}_{time or self._started_time}.log"
             os.makedirs(os.path.dirname(log_filename), exist_ok=True)
 
             # Prevent duplicate handlers

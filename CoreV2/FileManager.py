@@ -10,22 +10,35 @@ import stat
 #internal Modules
 from CoreV2.Result import Result
 from CoreV2.Exception import ExceptionTracker
-from CoreV2 import Utils
+from CoreV2 import Utils, LogSys
 
 class FileManager:
     """
     """
 
-    def __init__(self):
-        self._BASE_DIR = Path(__file__).resolve().parent.parent
+    def __init__(self, is_logging_enabled: bool=True, is_debug_enabled: bool=False,
+                 base_dir: Union[str, Path]=None,
+                 logger_manager_instance: LogSys.LoggerManager=None, logger: Any=None, log_instance: LogSys.Log=None, Utils_instance: Utils.Utils=None):
+        
+        # Initialize paths
+        self._BASE_DIR = base_dir or Path(__file__).resolve().parent.parent
 
-        #set Flag
-        self.is_logging_enabled = True
-        self.is_debug_enabled = True
+        # Initialize Flags
+        self.is_logging_enabled = is_logging_enabled
+        self.is_debug_enabled = is_debug_enabled
 
-        #initialize Classes
+        # Initialize classes
         self._exception_tracker = ExceptionTracker()
-        self._utils = Utils.Utils()
+        self._logger_manager = None
+        self.logger = None
+        if self.is_logging_enabled:
+            self._logger_manager = logger_manager_instance or LogSys.LoggerManager(base_dir=self._BASE_DIR / "logs", second_log_dir="file_manager")
+            self._logger_manager.make_logger("FileManagerLogger")
+            self.logger = logger or self._logger_manager.get_logger("FileManagerLogger")
+        self.log = log_instance or LogSys.Log(logger=self.logger)
+        self._utils = Utils_instance or Utils.Utils()
+
+        self.log.log_message("INFO", "FileManager initialized.")
 
     # internal Methods
     @staticmethod
@@ -136,7 +149,7 @@ class FileManager:
         except Exception as e:
             return self._exception_tracker.get_exception_return(e)
         
-    def list_of_files(self, dir_path: Union[str, Path], extension: str=None, only_name: bool = False) -> Result:
+    def list_of_files(self, dir_path: Union[str, Path], extensions: List[str]=None, only_name: bool = False) -> Result:
         """
         List all files in the directory at "dir_path"
 
@@ -146,13 +159,15 @@ class FileManager:
         """
         try:
             dir_path = self._str_to_path(dir_path)
+            extensions = [ext.lower() for ext in extensions] if extensions is not None else []
+
             if not dir_path.is_dir():
                 raise NotADirectoryError(f"Not a directory: {dir_path}")
 
             def is_matching_file(item: Path) -> str:
                 if os.path.isfile(item):
                     return
-                if extension is None or item.suffix.lower() == extension.lower():
+                if extensions is None or item.suffix.lower() in extensions:
                     return item.stem if only_name else str(item)
 
             files = []
