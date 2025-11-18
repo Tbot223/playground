@@ -53,12 +53,13 @@ class ExceptionTracker():
             print("An error occurred while handling another exception. This may indicate a critical issue.")
             return Result(False, f"{type(e).__name__} :{str(e)}", "Core.ExceptionTracker.get_exception_location, R23-54", traceback.format_exc())
 
-    def get_exception_info(self, error: Exception, user_input: Any=None, params: dict=None) -> Result:
+    def get_exception_info(self, error: Exception, user_input: Any=None, params: dict=None, masking: bool=False) -> Result:
         """
         Function to track exception information and return related information
         
         The error data dict includes traceback, location information, occurrence time, input context, etc.
-        
+        If masking is True, computer information will be masked.
+
         - error_info (dict):
             See Readme.md
         """
@@ -82,20 +83,43 @@ class ExceptionTracker():
                     "params": params
                 },
                 "traceback": traceback.format_exc(),
-                "computer_info": self._system_info
+                "computer_info": self._system_info if not masking else "<Masked>"
             }
             return Result(True, None, None, error_info)
         except Exception as e:
             print("An error occurred while handling another exception. This may indicate a critical issue.")
             return Result(False, f"{type(e).__name__} :{str(e)}", "Core.ExceptionTracker.get_exception_info, R56-90", traceback.format_exc())
         
-    def get_exception_return(self, error: Exception, user_input: Any=None, params: dict=None) -> dict:
+    def get_exception_return(self, error: Exception, user_input: Any=None, params: dict=None, masking: bool=False) -> dict:
         """
         Function to get exception information as a dictionary.
         This is a convenience function that wraps get_exception_info and extracts the data field from the Result object.
+
+        If masking is True, Exception information will be masked.
         """
         try:
-            return Result(False, f"{type(error).__name__} :{str(error)}", self.get_exception_location(error).data, self.get_exception_info(error, user_input, params).data)
+            return Result(False, f"{type(error).__name__} :{str(error)}", self.get_exception_location(error).data, self.get_exception_info(error, user_input, params).data if not masking else "<Masked>")
         except Exception as e:
             print("An error occurred while handling another exception. This may indicate a critical issue.")
             return Result(False, f"{type(e).__name__} :{str(e)}", "Core.ExceptionTracker.get_exception_return, R92-105", traceback.format_exc())
+        
+class ExceptionTrackerDecorator():
+    """
+    Decorator for wrapping functions with ExceptionTracker.
+
+    - Tracks exceptions and returns a safe value via ExceptionTracker.
+    - Use only for non‑critical functions (adds overhead).
+    - Not suitable if logging or side effects are required. 
+    """
+    def __init__(self, masking: bool=False, tracker: ExceptionTracker=None):
+        self.tracker = tracker or ExceptionTracker()
+        self.masking = masking
+
+    def __call__(self, func):
+        def wrapper(*args, **kwargs):
+            try:
+                return func(*args, **kwargs)
+            except Exception as e:
+                return self.tracker.get_exception_return(error=e, params=kwargs, masking=self.masking)
+        return wrapper
+    
