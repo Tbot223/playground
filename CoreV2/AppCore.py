@@ -147,8 +147,7 @@ class AppCore:
         let_as_completed = as_completed if type == 'thread' else pc_as_completed
         with executor_type(workers=workers) as executor:
             future_to_task = {executor.submit(func, **params): idx for idx, (func, params) in enumerate(data)}
-
-            results = [None] * len(data)
+            
             for future in let_as_completed(future_to_task):
                 idx = future_to_task[future]
                 try:
