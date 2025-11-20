@@ -1,6 +1,6 @@
 # external Modules
 from pathlib import Path
-from typing import Any, Tuple, Optional
+from typing import Optional
 import time
 import hashlib, secrets
 
@@ -10,20 +10,44 @@ from CoreV2.Exception import ExceptionTracker
 
 class Utils:
     """
-    Placeholder class for Utils in CoreV2.
-    Currently, no functionality is implemented here.
+    Utility class providing various helper functions.
+
+    Methods:
+        - str_to_path(path_str: str) -> Result
+            Convert a string to a Path object.
+        
+        - encrypt(data: str, algorithm: str='sha256') -> Result
+            Encrypt a string using the specified algorithm.
+
+        - pbkdf2_hmac(password: str, algorithm: str, iterations: int, salt_size: int) -> Result
+            Generate a PBKDF2 HMAC hash of the given password.
+
+        - verify_pbkdf2_hmac(password: str, salt_hex: str, hash_hex: str, iterations: int, algorithm: str) -> Result
+            Verify a PBKDF2 HMAC hash of the given password.
     """
     
     def __init__(self):
         self ._exception_tracker = ExceptionTracker()
 
-        self.DEFULT_ITERATIONS = 300000
-        self.DEFAULT_SALT_SIZE = 32
-
     # Internal Methods
     def _check_pdkdf2_params(self, password: str, algorithm: str, iterations: int, salt_size: int = 32) -> None:
         """
         Check parameters for PBKDF2 HMAC functions.
+
+        Args:
+            - password : The password string.
+            - algorithm : The hashing algorithm to use.
+            - iterations : Number of iterations.
+            - salt_size : Size of the salt in bytes (default: 32).
+
+        Raises:
+            ValueError: If any parameter is invalid.
+        
+        Example:
+            >> I'm Not recommending to call this method directly, It's for internal use.
+            >> utils = Utils()
+            >> utils._check_pdkdf2_params("my_password", "sha256", 100000, 32)
+            >> # No exception raised for valid parameters.
         """
         if not isinstance(password, str):
             raise ValueError("password must be a string")
@@ -38,6 +62,20 @@ class Utils:
     def str_to_path(self, path_str: str) -> Path:
         """
         Convert a string to a Path object.
+
+        Args:
+            - path_str : The string representation of the path.
+            
+        Returns:
+            Result: A Result object containing the Path object.
+        
+        Example:
+            >> result = utils.str_to_path("/home/user/documents")
+            >> if result.success:
+            >>     path = result.data # Path object
+            >>     print(path.exists())
+            >> else:
+            >>     print(result.error)
         """
         try:
             if not isinstance(path_str, str):
@@ -51,6 +89,21 @@ class Utils:
         """
         Encrypt a string using the specified algorithm.
         Supported algorithms: 'md5', 'sha1', 'sha256', 'sha512'
+
+        Args:
+            - data : The string to encrypt.
+            - algorithm : The hashing algorithm to use. Defaults to 'sha256
+
+        Returns:
+            Result: A Result object containing the encrypted string in hexadecimal format.
+
+        Example:
+            >> result = utils.encrypt("my_secret_data", algorithm='sha256')
+            >> if result.success:
+            >>     encrypted_data = result.data
+            >>     print(encrypted_data)
+            >> else:
+            >>     print(result.error)
         """
         try:
             if not isinstance(data, str):
@@ -71,6 +124,23 @@ class Utils:
         Supported algorithms: 'sha1', 'sha256', 'sha512'
 
         This function returns a dict containing the salt (hex), hash (hex), iterations, and algorithm used.
+
+        Args:
+            - password : The password string.
+            - algorithm : The hashing algorithm to use.
+            - iterations : Number of iterations.
+            - salt_size : Size of the salt in bytes.
+
+        Returns:
+            Result: A Result object containing a dict with the following keys:
+        
+        Example:
+            >> result = utils.pbkdf2_hmac("my_password", "sha256", 100000, 32)
+            >> if result.success:
+            >>     hash_info = result.data
+            >>     print(hash_info)
+            >> else:
+            >>     print(result.error)
         """
         try:
             self._check_pdkdf2_params(password, algorithm, iterations, salt_size)
@@ -97,6 +167,30 @@ class Utils:
         Supported algorithms: 'sha1', 'sha256', 'sha512'
 
         This function returns True if the password matches the hash, False otherwise.
+
+        Args:
+            - password : The password string to verify.
+            - salt_hex : The salt in hexadecimal format.
+            - hash_hex : The hash in hexadecimal format.
+            - iterations : Number of iterations.
+            - algorithm : The hashing algorithm to use.
+
+        Returns:
+            Result: A Result object containing a boolean indicating whether the password matches the hash.
+
+        Example:
+            >> hash_info = {
+            >>     "salt_hex": "a1b2c3d4e5f6...",
+            >>     "hash_hex": "abcdef123456...",
+            >>     "iterations": 100000,
+            >>     "algorithm": "sha256"
+            >> }
+            >> result = utils.verify_pbkdf2_hmac("my_password", hash_info["salt_hex"], hash_info["hash_hex"], hash_info["iterations"], hash_info["algorithm"])
+            >> if result.success:
+            >>     is_valid = result.data
+            >>     print(is_valid)  # True or False
+            >> else:
+            >>     print(result.error)
         """
         try:
             self._check_pdkdf2_params(password, algorithm, iterations)
@@ -114,8 +208,11 @@ class Utils:
         
 class DecoratorUtils:
     """
-    Placeholder class for DecoratorUtils in CoreV2.
-    Currently, no functionality is implemented here.
+    This class provides utility decorators for various purposes.
+
+    Methods:
+        - count_runtime() -> function
+            Decorator to measure and print the execution time of a function.
     """
 
     
@@ -140,101 +237,87 @@ class DecoratorUtils:
                 return result
             return wrapper
         return decorator
-
-class NameDecorator:
-    """
-    Placeholder class for NameDecorator in CoreV2.
-    Currently, no functionality is implemented here.
-    """
-    
-    def __init__(self):
-        self ._exception_tracker = ExceptionTracker()
-
-        self.names = {}
-
-    # Internal Methods
-    @staticmethod
-    def _to_pascal(name: str) -> str:
-        """
-        Convert name to PascalCase.
-        """
-        parts = name.replace('_', ' ').replace('-', ' ').split()
-        pascal_name = ''.join(word.capitalize() for word in parts)
-        return pascal_name
-
-    # external Methods
-    def register(self, name: str, obj: object, manual_name: bool=False) -> Result:
-        """
-        Register an object with a name.
-        """
-        try:
-            if not isinstance(name, str):
-                raise ValueError("name must be a string")
-            changed_name = self._to_pascal(name) if not manual_name else name
-            if hasattr(self, changed_name):
-                raise ValueError(f"An object is already registered with the name '{changed_name}'")
-            if hasattr(self, name):
-                raise ValueError(f"An object is already registered with the name '{name}'")
-            
-            self.names[changed_name] = f"{obj=}".split('=')[0]
-            super().__setattr__(changed_name, obj)
-            return Result(True, None, None, f"Object registered with name '{changed_name}' ( original name: '{name}' )")
-        except Exception as e:
-            return self._exception_tracker.get_exception_return(e)
-    
-    def unregister(self, name: str) -> Result:
-        """
-        Unregister an object by name. ( name is must be pascal case )
-        """
-        try:
-            if not hasattr(self, name):
-                raise ValueError(f"No object registered with name '{name}'")
-            
-            self.names.pop(name, None)
-            super().__delattr__(name)
-            return Result(True, None, None, f"Object unregistered with name '{name}'")
-        except Exception as e:
-            return self._exception_tracker.get_exception_return(e)
-        
-    def list_objects(self) -> Result:
-        """
-        List all registered object names.
-        """
-        try:
-            return Result(True, None, None, self.names)
-        except Exception as e:
-            return self._exception_tracker.get_exception_return(e)
-        
-    def __setattr__(self, name, value):
-        """
-        Set an object by name.
-        """
-        try:
-            super().__setattr__(name, value)
-        except Exception as e:
-            return self._exception_tracker.get_exception_return(e)
-        
-    def __getattr__(self, name):
-        """
-        Get an object by name.
-        """
-        try:
-            if not hasattr(self, name):
-                raise AttributeError(f"No object registered with name '{name}'")
-            return super().__getattribute__(name)
-        except Exception as e:
-            return self._exception_tracker.get_exception_return(e)
     
 class GlobalVars:
     """
-    Placeholder class for GlobalVars in CoreV2.
-    Currently, no functionality is implemented here.
+    This class manages global variables in a controlled manner.
+
+    RecRecommended usage:
+    - Beginners use explicit methods.
+    - Advanced users can use attribute access or call syntax.
+
+    Methods:
+        - set(key: str, value: object, overwrite) -> Result
+            Set a global variable.
+        
+        - get(key: str) -> Result
+            Get a global variable.
+
+        - delete(key: str) -> Result
+            Delete a global variable.
+
+        - clear() -> Result
+            Clear all global variables.
+
+        - list_vars() -> Result
+            List all global variables.
+
+        - exists(key: str) -> Result
+            Check if a global variable exists.
+
+        # internal Methods
+        - __getattr__(name) 
+            Get a global variable by attribute access.
+
+        - __setattr__(name, value)
+            Set a global variable by attribute access.  
+
+        - __call__(key: str, value: Optional[object], overwrite: bool) -> Result 
+            Get or set a global variable using call syntax.
+
+    Example:
+        >> globals = GlobalVars()
+        >> globals.set("api_key", "12345", overwrite=True)
+        >> result = globals.get("api_key")
+        >> if result.success:
+        >>     print(result.data)  # Output: 12345
+        >> else:
+        >>     print(result.error)
+
+        or using attribute access:
+
+        >> globals.api_key = "12345"
+        >> print(globals.api_key)  # Output: 12345
+        
+        or using call syntax:
+
+        >> globals("api_key", "12345", overwrite=True)
+        >> print(globals("api_key").data)  # Output: 12345
     """
     
     def __init__(self):
         self ._exception_tracker = ExceptionTracker()
         
     def set(self, key: str, value: object, overwrite: bool=False) -> Result:
+        """
+        Set a global variable.
+        
+        Args:
+            - key : The name of the global variable.
+            - value : The value to set.
+            - overwrite : If True, overwrite existing variable. Defaults to False.
+
+        Returns:
+            Result: A Result object indicating success or failure.
+        
+        Example:
+            >> globals = GlobalVars()
+            >> result = globals.set("api_key", "12345", overwrite=True)
+            >> if result.success:
+            >>     print(result.data)  # Output: Global variable 'api_key' set.
+            >> else:
+            >>     print(result.error)
+        """
         try:
             if hasattr(self, key) and not overwrite:
                 raise KeyError(f"Global variable '{key}' already exists.")
@@ -247,6 +330,21 @@ class GlobalVars:
     def get(self, key: str) -> Result:
         """
         Get a global variable.
+
+        Args:
+            - key : The name of the global variable.
+
+        Returns:
+            Result: A Result object containing the value of the global variable.
+
+        Example:
+            >> globals = GlobalVars()
+            >> globals.set("api_key", "12345", overwrite=True)
+            >> result = globals.get("api_key")
+            >> if result.success:
+            >>     print(result.data)  # Output: 12345
+            >> else:
+            >>     print(result.error)
         """
         try:
             if not self.exists(key):
@@ -258,6 +356,21 @@ class GlobalVars:
     def delete(self, key: str) -> Result:
         """
         Delete a global variable.
+
+        Args:
+            - key : The name of the global variable.
+        
+        Returns:
+            Result: A Result object indicating success or failure.
+
+        Example:
+            >> globals = GlobalVars()
+            >> globals.set("api_key", "12345", overwrite=True)
+            >> result = globals.delete("api_key")
+            >> if result.success and not globals.exists("api_key").data:
+            >>     print("api_key deleted successfully.")
+            >> else:
+            >>     print("Failed to delete api_key.")
         """
         try:
             if not self.exists(key):
@@ -271,6 +384,19 @@ class GlobalVars:
     def clear(self) -> Result:
         """
         Clear all global variables.
+
+        Returns:
+            Result: A Result object indicating success or failure.
+
+        Example:
+            >> globals = GlobalVars()
+            >> globals.set("api_key", "12345", overwrite=True)
+            >> globals.set("user_id", "user_01", overwrite=True)
+            >> result = globals.clear()
+            >> if result.success and len(globals.list_vars().data) == 0:
+            >>     print("All global variables cleared.")
+            >> else:
+            >>     print(result.error)
         """
         try:
             for name in list(vars(self).keys()):
@@ -284,6 +410,19 @@ class GlobalVars:
     def list_vars(self) -> Result:
         """
         List all global variables.
+
+        Returns:
+            Result: A Result object containing a list of global variable names.
+
+        Example:
+            >> globals = GlobalVars()
+            >> globals.set("api_key", "12345", overwrite=True)
+            >> globals.set("user_id", "user_01", overwrite=True)
+            >> result = globals.list_vars()
+            >> if result.success:
+            >>     print(result.data)  # Output: ['api_key', 'user_id']
+            >> else:
+            >>     print(result.error)
         """
         try:
             return Result(True, None, None, list(vars(self).keys()))
@@ -293,6 +432,21 @@ class GlobalVars:
     def exists(self, key: str) -> Result:
         """
         Check if a global variable exists.
+
+        Args:
+            - key : The name of the global variable.
+
+        Returns:
+            Result: A Result object containing a boolean indicating existence.
+
+        Example:
+            >> globals = GlobalVars()
+            >> globals.set("api_key", "12345", overwrite=True)
+            >> result = globals.exists("api_key")
+            >> if result.success:
+            >>     print(result.data)  # Output: True
+            >> else:
+            >>     print(result.error)
         """
         try:
             exists = hasattr(self, key)
@@ -303,9 +457,21 @@ class GlobalVars:
     def __getattr__(self, name):
         """
         Get a global variable by attribute access.
+
+        Args:
+            - name : The name of the global variable.
+
+        Returns:
+            The value of the global variable.
+
+        Example:
+            >> globals = GlobalVars()
+            >> globals.api_key = "12345"
+            >> print(globals.api_key)  # Output: 12345 ( this part uses __getattr__ )
         """
         try:
-            self.exists(name)
+            if not self.exists(name).data:
+                raise AttributeError(f"Global variable '{name}' does not exist.")
             return super().__getattribute__(name)
         except Exception as e:
             return self._exception_tracker.get_exception_return(e)
@@ -313,6 +479,18 @@ class GlobalVars:
     def __setattr__(self, name, value):
         """
         Set a global variable by attribute access.
+
+        Args:
+            - name : The name of the global variable.
+            - value : The value to set.
+
+        Returns:
+            Result: A Result object indicating success or failure.
+
+        Example:
+            >> globals = GlobalVars()
+            >> globals.api_key = "12345" ( this part uses __setattr__ )
+            >> print(globals.api_key)  # Output: 12345
         """
         try:
             super().__setattr__(name, value)
@@ -323,6 +501,23 @@ class GlobalVars:
         """
         Get or set a global variable using call syntax.
         If value is provided, set the variable; otherwise, get it.
+
+        Args:
+            - key : The name of the global variable.
+            - value : The value to set (optional).
+            - overwrite : If True, overwrite existing variable when setting. Defaults to False.
+
+        Returns:
+            Result: A Result object containing the value when getting, or indicating success/failure when setting
+
+        Example:
+            >> globals = GlobalVars()
+            >> globals("api_key", "12345", overwrite=True)  # Set api_key
+            >> result = globals("api_key")  # Get api_key
+            >> if result.success:
+            >>     print(result.data)  # Output: 12345
+            >> else:
+            >>     print(result.error)
         """
         try:
             if value is not None:

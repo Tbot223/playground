@@ -42,8 +42,21 @@ class ExceptionTracker():
     def get_exception_location(self, error: Exception) -> Result:
         """
         Function to track where exceptions occurred and return related information
-        - Return information is included as a string in the data of the Result object.
-        - Format (str): '{file}', line {line}, in {function}'
+
+        Args:
+            - error (Exception): The exception object to track.
+
+        Returns:
+            Result: A Result object containing the location information where the exception occurred.
+                - Format (str): '{file}', line {line}, in {function}'
+
+        Example:
+            >> try:
+            >>     1 / 0
+            >> except Exception as e:
+            >>     location_result = tracker.get_exception_location(e)
+            >>     print(location_result.data)
+            >> # Output: 'script.py', line 10, in <module>
         """
         try:
             tb = traceback.extract_tb(error.__traceback__)
@@ -60,8 +73,23 @@ class ExceptionTracker():
         The error data dict includes traceback, location information, occurrence time, input context, etc.
         If masking is True, computer information will be masked.
 
-        - error_info (dict):
-            See Readme.md
+        Args:
+            - error (Exception): The exception object to track.
+            - user_input (Any, optional): User input context related to the exception. Defaults to None.
+            - params (dict, optional): Additional parameters related to the exception. Defaults to None.
+            - masking (bool, optional): If True, computer information will be masked. Defaults to False.
+
+        Returns:
+            Result: A Result object containing detailed information about the exception.
+                - data (dict): A dictionary containing detailed exception information. ( Please see Readme.md for more details on the structure of error_info )
+
+        Example:
+            >> try:
+            >>     1 / 0
+            >> except Exception as e:
+            >>     info_result = tracker.get_exception_info(e, user_input="Divide operation", params
+            >>     print(info_result.data)
+            >> # Output: ( error_info dict, see Readme.md for structure )
         """
         try:
             tb = traceback.extract_tb(error.__traceback__)
@@ -92,10 +120,28 @@ class ExceptionTracker():
         
     def get_exception_return(self, error: Exception, user_input: Any=None, params: dict=None, masking: bool=False) -> dict:
         """
-        Function to get exception information as a dictionary.
-        This is a convenience function that wraps get_exception_info and extracts the data field from the Result object.
+        A convenience function to standardize the return of exception information. It's designed to be used in exception handling blocks.
+        ( Includes exception type, message, location, and detailed info. )
+
+        I recommend that the caller return the return value of this function as is.
 
         If masking is True, Exception information will be masked.
+
+        Args:
+            - error (Exception): The exception object to track.
+            - user_input (Any, optional): User input context related to the exception. Defaults to None.
+            - params (dict, optional): Additional parameters related to the exception. Defaults to None.
+            - masking (bool, optional): If True, exception information will be masked. Defaults to False.
+
+        Returns:
+            Result: A dictionary containing detailed information about the exception.
+
+        Example:
+            >> try:
+            >>     1 / 0
+            >> except Exception as e:
+            >>     print(tracker.get_exception_return(e, user_input="Divide operation", params={"a":1, "b":0}, True))
+            >> Result(False, 'ZeroDivisionError :division by zero', "'script.py', line 10, in <module>", '<Masked>')
         """
         try:
             return Result(False, f"{type(error).__name__} :{str(error)}", self.get_exception_location(error).data, self.get_exception_info(error, user_input, params).data if not masking else "<Masked>")
@@ -110,6 +156,14 @@ class ExceptionTrackerDecorator():
     - Tracks exceptions and returns a safe value via ExceptionTracker.
     - Use only for non‑critical functions (adds overhead).
     - Not suitable if logging or side effects are required. 
+    
+    Example:
+        >> tracker = ExceptionTracker()
+        >> @ExceptionTrackerDecorator(masking=True, tracker=tracker)
+        >> def risky_function(x, y):
+        >>     return x / y
+        >> print(risky_function(10, 0))
+        >> # Output: Result(False, 'ZeroDivisionError :division by zero', "'script.py', line 10, in risky_function", '<Masked>')
     """
     def __init__(self, masking: bool=False, tracker: ExceptionTracker=None):
         self.tracker = tracker or ExceptionTracker()

@@ -1,6 +1,6 @@
 # external Modules
 import os
-from typing import List, Union, Any, Dict, Tuple, Optional
+from typing import Union, Any, Optional
 from pathlib import Path
 import logging
 import time
@@ -11,17 +11,22 @@ from CoreV2.Exception import ExceptionTracker
 
 class LoggerManager:
     """
-    Logger manager class
+    Logger Manager class to create and manage logger instances
 
-    Output logs to log files and console
+    Attributes:
+        - base_dir : Base directory for logs.
+        - second_log_dir : Subdirectory name within the base log directory.
+
+    Methods:
+        - make_logger(logger_name, log_level, time) -> Result
+            Create logger instance
+
+        - get_logger(logger_name) -> Result
+            Get logger instance by name
     """
     def __init__(self, base_dir: Union[str, Path]=None, second_log_dir: str="default"):
         """
         Initialize logger manager
-
-        Args:
-            base_dir (Union[str, Path]): Base directory for logs. If None, defaults to '<your_base_dir>/logs'.
-            second_log_dir (str): Subdirectory name within the base log directory.
         """
         self._loggers = {}
         # Create log directory
@@ -35,6 +40,22 @@ class LoggerManager:
     def make_logger(self, logger_name: str, log_level: int=logging.INFO, time: Any = None) -> Result:
         """
         Create logger instance
+
+        Args:
+            - logger_name : Name of the logger.
+            - log_level : Logging level (default: logging.INFO).
+            - time : Time string to include in log filename. Defaults to None
+            
+        Returns:
+            Result: A Result object indicating success or failure of logger creation.
+
+        Example:
+            >> logger_manager = LoggerManager()
+            >> result = logger_manager.make_logger("my_logger", logging.DEBUG)
+            >> if result.success:
+            >>     print(result.data) # Logger 'my_logger' created successfully.
+            >> else:
+            >>     print(result.error)
         """
         try:
             # Duplicate check
@@ -77,6 +98,22 @@ class LoggerManager:
     def get_logger(self, logger_name: str) -> Result:
         """
         Get logger instance by name
+
+        Args:
+            - logger_name : Name of the logger to retrieve.
+        
+        Returns:
+            Result: A Result object containing the logger instance if found.
+
+        Example:
+            >> logger_manager = LoggerManager()
+            >> logger_manager.make_logger("my_logger", logging.DEBUG)
+            >> result = logger_manager.get_logger("my_logger")
+            >> if result.success:
+            >>     logger = result.data
+            >>     logger.info("This is a test log message.")
+            >> else:
+            >>     print(result.error)        
         """
         try:
             if logger_name not in self._loggers:
@@ -88,6 +125,13 @@ class LoggerManager:
 class Log:
     """
     Log class for logging messages
+
+    Attributes:
+        - logger : Logger instance for logging messages.
+
+    Methods:
+        - log_message(level, message) -> Result
+            Log a message with the specified log level.
     """
 
     def __init__(self, logger: logging.Logger = None):
@@ -106,6 +150,27 @@ class Log:
     def log_message(self, level: Optional[Union[int, str]], message: str) -> Result:
         """
         Log a message with the specified log level.
+
+        Args:
+            - level : Log level as an integer or string ('INFO').
+            - message : The message to log.
+
+        Returns:
+            Result: A Result object indicating success or failure of the logging operation.
+
+        Example:
+            >> logger_manager = LoggerManager()
+            >> logger_result = logger_manager.make_logger("app_logger", logging.INFO)
+            >> if logger_result.success:
+            >>     logger = logger_result.data
+            >>     log_system = Log(logger)
+            >>     log_result = log_system.log_message('INFO', "This is an info message
+            >>     if log_result.success:
+            >>         print("Log message sent successfully.")
+            >>     else:
+            >>         print(log_result.error)
+            >> else:
+            >>     print(logger_result.error)
         """
         if self.logger is None:
             return Result(False, None, None, "Logger is not initialized.")
