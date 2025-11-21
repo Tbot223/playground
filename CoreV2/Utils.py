@@ -1,6 +1,6 @@
 # external Modules
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Any
 import time
 import hashlib, secrets
 
@@ -29,7 +29,7 @@ class Utils:
     
     def __init__(self, is_logging_enabled: bool=False,
                  base_dir: Optional[Path]=None,
-                 logger_manager_instance: Optional[LogSys.LoggerManager]=None, logger: Optional[LogSys.Logger]=None, 
+                 logger_manager_instance: Optional[LogSys.LoggerManager]=None, logger: Optional[Any]=None, 
                  log_instance: Optional[LogSys.Log]=None):
         """
         Initialize Utils class.
