@@ -51,12 +51,12 @@ class ExceptionTracker():
                 - Format (str): '{file}', line {line}, in {function}'
 
         Example:
-            >> try:
-            >>     1 / 0
-            >> except Exception as e:
-            >>     location_result = tracker.get_exception_location(e)
-            >>     print(location_result.data)
-            >> # Output: 'script.py', line 10, in <module>
+            >>> try:
+            >>>     1 / 0
+            >>> except Exception as e:
+            >>>     location_result = tracker.get_exception_location(e)
+            >>>     print(location_result.data)
+            >>> # Output: 'script.py', line 10, in <module>
         """
         try:
             tb = traceback.extract_tb(error.__traceback__)
@@ -84,12 +84,12 @@ class ExceptionTracker():
                 - data (dict): A dictionary containing detailed exception information. ( Please see Readme.md for more details on the structure of error_info )
 
         Example:
-            >> try:
-            >>     1 / 0
-            >> except Exception as e:
-            >>     info_result = tracker.get_exception_info(e, user_input="Divide operation", params
-            >>     print(info_result.data)
-            >> # Output: ( error_info dict, see Readme.md for structure )
+            >>> try:
+            >>>     1 / 0
+            >>> except Exception as e:
+            >>>     info_result = tracker.get_exception_info(e, user_input="Divide operation", params
+            >>>     print(info_result.data)
+            >>> # Output: ( error_info dict, see Readme.md for structure )
         """
         try:
             tb = traceback.extract_tb(error.__traceback__)
@@ -137,11 +137,11 @@ class ExceptionTracker():
             Result: A dictionary containing detailed information about the exception.
 
         Example:
-            >> try:
-            >>     1 / 0
-            >> except Exception as e:
-            >>     print(tracker.get_exception_return(e, user_input="Divide operation", params={"a":1, "b":0}, True))
-            >> Result(False, 'ZeroDivisionError :division by zero', "'script.py', line 10, in <module>", '<Masked>')
+            >>> try:
+            >>>     1 / 0
+            >>> except Exception as e:
+            >>>     print(tracker.get_exception_return(e, user_input="Divide operation", params={"a":1, "b":0}, True))
+            >>> Result(False, 'ZeroDivisionError :division by zero', "'script.py', line 10, in <module>", '<Masked>')
         """
         try:
             return Result(False, f"{type(error).__name__} :{str(error)}", self.get_exception_location(error).data, self.get_exception_info(error, user_input, params).data if not masking else "<Masked>")
@@ -158,12 +158,12 @@ class ExceptionTrackerDecorator():
     - Not suitable if logging or side effects are required. 
     
     Example:
-        >> tracker = ExceptionTracker()
-        >> @ExceptionTrackerDecorator(masking=True, tracker=tracker)
-        >> def risky_function(x, y):
-        >>     return x / y
-        >> print(risky_function(10, 0))
-        >> # Output: Result(False, 'ZeroDivisionError :division by zero', "'script.py', line 10, in risky_function", '<Masked>')
+        >>> tracker = ExceptionTracker()
+        >>> @ExceptionTrackerDecorator(masking=True, tracker=tracker)
+        >>> def risky_function(x, y):
+        >>>     return x / y
+        >>> print(risky_function(10, 0))
+        >>> # Output: Result(False, 'ZeroDivisionError :division by zero', "'script.py', line 10, in risky_function", '<Masked>')
     """
     def __init__(self, masking: bool=False, tracker: ExceptionTracker=None):
         self.tracker = tracker or ExceptionTracker()

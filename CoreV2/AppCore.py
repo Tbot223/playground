@@ -2,10 +2,9 @@
 import os
 import subprocess
 import sys
-from typing import Any, Callable, List, Dict, Tuple, Union
+from typing import Any, Callable, List, Dict, Tuple, Union, Optional
 from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from concurrent.futures import ProcessPoolExecutor, as_completed as pc_as_completed
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
 
 #internal Modules
 from CoreV2.Result import Result
@@ -55,8 +54,8 @@ class AppCore:
     
     def __init__(self, is_logging_enabled: bool=True, is_debug_enabled: bool=False, default_lang: str="en",
                  base_dir: Union[str, Path]=None,
-                 logger_manager_instance: LogSys.LoggerManager=None, logger: Any=None, log_instance: LogSys.Log=None,
-                 filemanager: FileManager.FileManager=None):
+                 logger_manager_instance: Optional[LogSys.LoggerManager]=None, logger: Optional[Any]=None, 
+                 log_instance: Optional[LogSys.Log]=None, filemanager: Optional[FileManager.FileManager]=None):
 
         # Initialize paths
         self._PARENT_DIR = base_dir or Path(__file__).resolve().parent.parent
@@ -100,24 +99,24 @@ class AppCore:
             Tuple (is_valid: bool, error_message: str)
 
         Example:
-            >> # I'm not recommending to call this method directly, it's for internal use.
-            >> data = [(func1, {'arg1': val1}), (func2, {'arg2': val2})]
-            >> is_valid, error_message = app_core._check_executable(data, workers=4, override=False, timeout=10)
-            >> if not is_valid:
-            >>     print(error_message)
-            >> else:
-            >>     print("Data and workers are valid for execution.")
+            >>> # I'm not recommending to call this method directly, it's for internal use.
+            >>> data = [(func1, {'arg1': val1}), (func2, {'arg2': val2})]
+            >>> is_valid, error_message = app_core._check_executable(data, workers=4, override=False, timeout=10)
+            >>> if not is_valid:
+            >>>     print(error_message)
+            >>> else:
+            >>>     print("Data and workers are valid for execution.")
         """
         if not isinstance(data, list) or len(data) == 0:
             return False, "Data must be a non-empty list"
         for item in data:
-            if not (isinstance(item, tuple) and len(item) == 2 and callable(item[0]) and isinstance(item[1], dict)):
+            if not (isinstance(item, tuple) and len(item) == 2 or not callable(item[0]) or not isinstance(item[1], dict)):
                 return False, "Each item in data must be a tuple of (callable, dict)"
-        if workers is not None and (not isinstance(workers, int) or workers <= 0):
+        if workers is None or not isinstance(workers, int) or workers <= 0:
             return False, "workers must be a positive integer"
         if workers > len(data) and not override:
             return False, f"workers {workers} exceeds number of tasks {len(data)}"
-        if timeout is not None and (not isinstance(timeout, (int, float)) or timeout <= 0.1):
+        if timeout is None or not isinstance(timeout, (int, float)) or timeout <= 0.1:
             return False, "timeout must be a positive number"
         return True
     
@@ -135,25 +134,25 @@ class AppCore:
             indexed list of Result objects corresponding to each function execution.
 
         Example:
-            >> # I'm not recommending to call this method directly, it's for internal use.
-            >> data = [(func1, {'arg1': val1}), (func2, {'arg2': val2})]
-            >> results = app_core._generic_executor(data, workers=4, timeout=10, type='thread')
-            >> for res in results:
-            >>     print(res.success, res.data)
+            >>> # I'm not recommending to call this method directly, it's for internal use.
+            >>> data = [(func1, {'arg1': val1}), (func2, {'arg2': val2})]
+            >>> results = app_core._generic_executor(data, workers=4, timeout=10, type='thread')
+            >>> for res in results:
+            >>>     print(res.success, res.data)
         """
         results = [None] * len(data)
 
         executor_type = ThreadPoolExecutor if type == 'thread' else ProcessPoolExecutor
-        let_as_completed = as_completed if type == 'thread' else pc_as_completed
         with executor_type(workers=workers) as executor:
             future_to_task = {executor.submit(func, **params): idx for idx, (func, params) in enumerate(data)}
-            
-            for future in let_as_completed(future_to_task):
+
+            for future in as_completed(future_to_task):
                 idx = future_to_task[future]
                 try:
                     result = future.result(timeout=timeout)
                     results[idx] = Result(True, None, None, result)
                 except Exception as e:
+                    self.log.log_message("ERROR", f"Error executing task at index {idx}: {str(e)}")
                     results[idx] = self._exception_tracker.get_exception_return(e, params=data[idx][1])
         return results
     
@@ -172,10 +171,10 @@ class AppCore:
             A list of keys that meet the comparison criteria.
 
         Example:
-            >> # I'm not recommending to call this method directly, it's for internal use.
-            >> my_dict = {'a': 10, 'b': 20, 'c': 30}
-            >> found_keys = app_core._lookup_dict(my_dict, threshold=20, comparison_func=lambda x: x > 20, comparison_type='gt', nested=False)
-            >> print(found_keys)  # Output: ['c']
+            >>> # I'm not recommending to call this method directly, it's for internal use.
+            >>> my_dict = {'a': 10, 'b': 20, 'c': 30}
+            >>> found_keys = app_core._lookup_dict(my_dict, threshold=20, comparison_func=lambda x: x > 20, comparison_type='gt', nested=False)
+            >>> print(found_keys)  # Output: ['c']
         """
         found_keys = []
         for key, value in dict_obj.items():
@@ -187,6 +186,7 @@ class AppCore:
             if comparison_func(value):
                 found_keys.append(key)
             if nested and isinstance(value, dict):
+                self.log.log_message("DEBUG", f"Searching nested dictionary at key '{key}'.")
                 found_keys.append(self._lookup_dict(value, threshold, comparison_func, comparison_type, nested))
         return found_keys
 
@@ -205,10 +205,10 @@ class AppCore:
             indexed list of Result objects corresponding to each function execution.
 
         Example:
-            >> data = [(func1, {'arg1': val1}), (func2, {'arg2': val2})]
-            >> result = app_core.thread_pool_executor(data, workers=4, override=False, timeout=10)
-            >> for res in result.data:
-            >>     print(res.success, res.data)
+            >>> data = [(func1, {'arg1': val1}), (func2, {'arg2': val2})]
+            >>> result = app_core.thread_pool_executor(data, workers=4, override=False, timeout=10)
+            >>> for res in result.data:
+            >>>     print(res.success, res.data)
         """
         try:
             is_valid, error_message = self._check_executable(data, workers, override, timeout)
@@ -217,8 +217,10 @@ class AppCore:
             workers = min(workers or os.cpu_count() * 2, os.cpu_count() * 2)
             results = self._generic_executor(data, workers, timeout, type='thread')
 
+            self.log.log_message("INFO", f"Thread pool executor completed with {len(results)} tasks.")
             return Result(True, None, None, results)
         except Exception as e:
+            self.log.log_message("ERROR", f"Error in thread pool executor: {str(e)}")
             return self._exception_tracker.get_exception_return(e)
 
     def process_pool_executor(self, data: List[Tuple[Callable[ ... , Any], Dict]], workers: int = None, override: bool = False, timeout: float = None) -> Result:
@@ -235,10 +237,10 @@ class AppCore:
             indexed list of Result objects corresponding to each function execution.
 
         Example:
-            >> data = [(func1, {'arg1': val1}), (func2, {'arg2': val2})]
-            >> result = app_core.process_pool_executor(data, workers=4, override=False, timeout=10)
-            >> for res in result.data:
-            >>     print(res.success, res.data)
+            >>> data = [(func1, {'arg1': val1}), (func2, {'arg2': val2})]
+            >>> result = app_core.process_pool_executor(data, workers=4, override=False, timeout=10)
+            >>> for res in result.data:
+            >>>     print(res.success, res.data)
         """
         try:
             is_valid, error_message = self._check_executable(data, workers, override, timeout)
@@ -247,8 +249,10 @@ class AppCore:
             workers = min(workers or os.cpu_count() * 2, os.cpu_count() * 2)
             results = self._generic_executor(data, workers, timeout, type='process')
 
+            self.log.log_message("INFO", f"Process pool executor completed with {len(results)} tasks.")
             return Result(True, None, None, results)
         except Exception as e:
+            self.log.log_message("ERROR", f"Error in process pool executor: {str(e)}")
             return self._exception_tracker.get_exception_return(e)
 
     def find_keys_by_value(self, dict_obj: Dict, threshold: Union[int, float, str, bool],  comparison: str='eq', nested: bool=False) -> Result:
@@ -267,9 +271,9 @@ class AppCore:
             A list of keys that meet the comparison criteria.
 
         Example:
-            >> my_dict = {'a': 10, 'b': 20, 'c': 30}
-            >> result = app_core.find_keys_by_value(my_dict, threshold=20, comparison='gt', nested=False)
-            >> print(result.data)  # Output: ['c']
+            >>> my_dict = {'a': 10, 'b': 20, 'c': 30}
+            >>> result = app_core.find_keys_by_value(my_dict, threshold=20, comparison='gt', nested=False)
+            >>> print(result.data)  # Output: ['c']
 
         Supported comparison operators:
         - 'eq': equal to
@@ -299,8 +303,10 @@ class AppCore:
             comparison_func = comparison_operators[comparison]
             found_keys = self._lookup_dict(dict_obj, threshold, comparison_func, comparison, nested)
 
+            self.log.log_message("INFO", f"find_keys_by_value found {len(found_keys)} keys matching criteria.")
             return Result(True, None, None, found_keys)
         except Exception as e:
+            self.log.log_message("ERROR", f"Error in find_keys_by_value: {str(e)}")
             return self._exception_tracker.get_exception_return(e)
         
     def get_text_by_lang(self, key: str, lang: str) -> Result:
@@ -317,11 +323,11 @@ class AppCore:
             The localized text corresponding to the key and language.
 
         Example:
-            >> result = app_core.get_text_by_lang('greeting', 'en')
-            >> if result.success:
-            >>     print(result.data)  # Output: "Hello"
-            >> else:
-            >>     print(result.error)
+            >>> result = app_core.get_text_by_lang('greeting', 'en')
+            >>> if result.success:
+            >>>     print(result.data)  # Output: "Hello"
+            >>> else:
+            >>>     print(result.error)
         """
 
         try:
@@ -329,19 +335,23 @@ class AppCore:
                 lang = self._default_lang
 
             if lang not in self._lang_cache:
+                self.log.log_message("INFO", f"Loading language file for '{lang}'.")
                 lang_file_path = self._LANG_DIR / f"{lang}.json"
                 read_result = self._file_manager.read_json(lang_file_path)
                 if not read_result.success:
+                    self.log.log_message("ERROR", f"Failed to read language file for '{lang}': {read_result.error}")
                     return read_result
                 self._lang_cache[lang] = read_result.data
 
             if key not in self._lang_cache[lang]:
+                self.log.log_message("ERROR", f"Key '{key}' not found in language '{lang}'.")
                 return Result(False, f"Key '{key}' not found in language '{lang}'", None, None)
             
+            self.log.log_message("INFO", f"Retrieved text for key '{key}' in language '{lang}'.")
             return Result(True, None, None, self._lang_cache[lang][key])
-
         except Exception as e:
             self._lang_cache.pop(lang)
+            self.log.log_message("ERROR", f"Error in get_text_by_lang: {str(e)}")
             return self._exception_tracker.get_exception_return(e)
         
     def clear_console(self) -> Result:
@@ -352,13 +362,16 @@ class AppCore:
             Result object indicating success or failure of the operation.
 
         Example:
-            >> result = app_core.clear_console() # then console is cleared
+            >>> result = app_core.clear_console() # then console is cleared
         """
         try:
             command = 'cls' if os.name == 'nt' else 'clear'
             subprocess.run(command, shell=True, check=True)
+
+            self.log.log_message("INFO", "Console cleared successfully.")
             return Result(True, None, None, "Console cleared successfully.")
         except Exception as e:
+            self.log.log_message("ERROR", f"Error in clear_console: {str(e)}")
             return self._exception_tracker.get_exception_return(e)
         
     def exit_application(self, code: int=0) -> Result:
@@ -372,11 +385,13 @@ class AppCore:
             returns only on failure with a Result object indicating the error.
 
         Example:
-            >> result = app_core.exit_application(0) # then application exits with code 0
+            >>> result = app_core.exit_application(0) # then application exits with code 0
         """
         try:
+            self.log.log_message("INFO", f"Exiting application with code {code}.")
             os._exit(code)
         except Exception as e:
+            self.log.log_message("ERROR", f"Error in exit_application: {str(e)}")
             return self._exception_tracker.get_exception_return(e)
     
     def restart_application(self) -> Result:
@@ -387,10 +402,12 @@ class AppCore:
             returns only on failure with a Result object indicating the error.
 
         Example:
-            >> result = app_core.restart_application() # then application restarts
+            >>> result = app_core.restart_application() # then application restarts
         """
         try:
             python = sys.executable
+            self.log.log_message("INFO", "Restarting application.")
             os.execl(python, python, * sys.argv)
         except Exception as e:
+            self.log.log_message("ERROR", f"Error in restart_application: {str(e)}")
             return self._exception_tracker.get_exception_return(e)

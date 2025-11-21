@@ -7,6 +7,7 @@ import hashlib, secrets
 # internal Modules
 from CoreV2.Result import Result
 from CoreV2.Exception import ExceptionTracker
+from CoreV2 import LogSys
 
 class Utils:
     """
@@ -26,8 +27,30 @@ class Utils:
             Verify a PBKDF2 HMAC hash of the given password.
     """
     
-    def __init__(self):
-        self ._exception_tracker = ExceptionTracker()
+    def __init__(self, is_logging_enabled: bool=False,
+                 base_dir: Optional[Path]=None,
+                 logger_manager_instance: Optional[LogSys.LoggerManager]=None, logger: Optional[LogSys.Logger]=None, 
+                 log_instance: Optional[LogSys.Log]=None):
+        """
+        Initialize Utils class.
+        """
+        # Initialize Paths
+        self._BASE_DIR = base_dir or Path(__file__).resolve().parent.parent
+
+        # Initialize Flags
+        self.is_logging_enabled = is_logging_enabled
+
+        # Initialize Classes
+        self._exception_tracker = ExceptionTracker()
+        self._logger_manager = None
+        self._logger = None
+        if self.is_logging_enabled:
+            self._logger_manager = logger_manager_instance or LogSys.LoggerManager(base_dir=self._BASE_DIR / "logs", second_log_dir="utils")
+            self._logger_manager.make_logger("UtilsLogger")
+            self._logger = logger or self._logger_manager.get_logger("UtilsLogger")
+        self.log = log_instance or LogSys.Log(logger=self._logger)
+
+        self.log.log_message("INFO", "Utils initialized.")
 
     # Internal Methods
     def _check_pdkdf2_params(self, password: str, algorithm: str, iterations: int, salt_size: int = 32) -> None:
@@ -44,10 +67,10 @@ class Utils:
             ValueError: If any parameter is invalid.
         
         Example:
-            >> I'm Not recommending to call this method directly, It's for internal use.
-            >> utils = Utils()
-            >> utils._check_pdkdf2_params("my_password", "sha256", 100000, 32)
-            >> # No exception raised for valid parameters.
+            >>> I'm Not recommending to call this method directly, It's for internal use.
+            >>> utils = Utils()
+            >>> utils._check_pdkdf2_params("my_password", "sha256", 100000, 32)
+            >>> # No exception raised for valid parameters.
         """
         if not isinstance(password, str):
             raise ValueError("password must be a string")
@@ -70,12 +93,12 @@ class Utils:
             Result: A Result object containing the Path object.
         
         Example:
-            >> result = utils.str_to_path("/home/user/documents")
-            >> if result.success:
-            >>     path = result.data # Path object
-            >>     print(path.exists())
-            >> else:
-            >>     print(result.error)
+            >>> result = utils.str_to_path("/home/user/documents")
+            >>> if result.success:
+            >>>     path = result.data # Path object
+            >>>     print(path.exists())
+            >>> else:
+            >>>     print(result.error)
         """
         try:
             if not isinstance(path_str, str):
@@ -98,12 +121,12 @@ class Utils:
             Result: A Result object containing the encrypted string in hexadecimal format.
 
         Example:
-            >> result = utils.encrypt("my_secret_data", algorithm='sha256')
-            >> if result.success:
-            >>     encrypted_data = result.data
-            >>     print(encrypted_data)
-            >> else:
-            >>     print(result.error)
+            >>> result = utils.encrypt("my_secret_data", algorithm='sha256')
+            >>> if result.success:
+            >>>     encrypted_data = result.data
+            >>>     print(encrypted_data)
+            >>> else:
+            >>>     print(result.error)
         """
         try:
             if not isinstance(data, str):
@@ -114,8 +137,11 @@ class Utils:
             hash_func = getattr(hashlib, algorithm)()
             hash_func.update(data.encode('utf-8'))
             encrypted_data = hash_func.hexdigest()
+
+            self.log.log_message("INFO", f"Data encrypted using {algorithm}.")
             return Result(True, None, None, encrypted_data)
         except Exception as e:
+            self.log.log_message("ERROR", f"Encryption failed: {e}")
             return self._exception_tracker.get_exception_return(e)
         
     def pbkdf2_hmac(self, password: str, algorithm: str, iterations: int, salt_size: int) -> Result:
@@ -135,12 +161,12 @@ class Utils:
             Result: A Result object containing a dict with the following keys:
         
         Example:
-            >> result = utils.pbkdf2_hmac("my_password", "sha256", 100000, 32)
-            >> if result.success:
-            >>     hash_info = result.data
-            >>     print(hash_info)
-            >> else:
-            >>     print(result.error)
+            >>> result = utils.pbkdf2_hmac("my_password", "sha256", 100000, 32)
+            >>> if result.success:
+            >>>     hash_info = result.data
+            >>>     print(hash_info)
+            >>> else:
+            >>>     print(result.error)
         """
         try:
             self._check_pdkdf2_params(password, algorithm, iterations, salt_size)
@@ -157,8 +183,10 @@ class Utils:
                 "algorithm": algorithm
             }
 
+            self.log.log_message("INFO", f"PBKDF2 HMAC hash generated using {algorithm} with {iterations} iterations.")
             return Result(True, None, None, result)
         except Exception as e:
+            self.log.log_message("ERROR", f"PBKDF2 HMAC hash generation failed: {e}")
             return self._exception_tracker.get_exception_return(e)
         
     def verify_pbkdf2_hmac(self, password: str, salt_hex: str, hash_hex: str, iterations: int, algorithm: str) -> Result:
@@ -179,18 +207,18 @@ class Utils:
             Result: A Result object containing a boolean indicating whether the password matches the hash.
 
         Example:
-            >> hash_info = {
-            >>     "salt_hex": "a1b2c3d4e5f6...",
-            >>     "hash_hex": "abcdef123456...",
-            >>     "iterations": 100000,
-            >>     "algorithm": "sha256"
-            >> }
-            >> result = utils.verify_pbkdf2_hmac("my_password", hash_info["salt_hex"], hash_info["hash_hex"], hash_info["iterations"], hash_info["algorithm"])
-            >> if result.success:
-            >>     is_valid = result.data
-            >>     print(is_valid)  # True or False
-            >> else:
-            >>     print(result.error)
+            >>> hash_info = {
+            >>>     "salt_hex": "a1b2c3d4e5f6...",
+            >>>     "hash_hex": "abcdef123456...",
+            >>>     "iterations": 100000,
+            >>>     "algorithm": "sha256"
+            >>> }
+            >>> result = utils.verify_pbkdf2_hmac("my_password", hash_info["salt_hex"], hash_info["hash_hex"], hash_info["iterations"], hash_info["algorithm"])
+            >>> if result.success:
+            >>>     is_valid = result.data
+            >>>     print(is_valid)  # True or False
+            >>> else:
+            >>>     print(result.error)
         """
         try:
             self._check_pdkdf2_params(password, algorithm, iterations)
@@ -202,8 +230,10 @@ class Utils:
             computed_hash_hex = hash_bytes.hex()
 
             is_valid = computed_hash_hex == hash_hex
+            self.log.log_message("INFO", f"PBKDF2 HMAC hash verification using {algorithm} with {iterations} iterations. Result: {is_valid}")
             return Result(True, None, None, is_valid)
         except Exception as e:
+            self.log.log_message("ERROR", f"PBKDF2 HMAC hash verification failed: {e}")
             return self._exception_tracker.get_exception_return(e)
         
 class DecoratorUtils:
@@ -276,23 +306,23 @@ class GlobalVars:
             Get or set a global variable using call syntax.
 
     Example:
-        >> globals = GlobalVars()
-        >> globals.set("api_key", "12345", overwrite=True)
-        >> result = globals.get("api_key")
-        >> if result.success:
-        >>     print(result.data)  # Output: 12345
-        >> else:
-        >>     print(result.error)
+        >>> globals = GlobalVars()
+        >>> globals.set("api_key", "12345", overwrite=True)
+        >>> result = globals.get("api_key")
+        >>> if result.success:
+        >>>     print(result.data)  # Output: 12345
+        >>> else:
+        >>>     print(result.error)
 
         or using attribute access:
 
-        >> globals.api_key = "12345"
-        >> print(globals.api_key)  # Output: 12345
+        >>> globals.api_key = "12345"
+        >>> print(globals.api_key)  # Output: 12345
         
         or using call syntax:
 
-        >> globals("api_key", "12345", overwrite=True)
-        >> print(globals("api_key").data)  # Output: 12345
+        >>> globals("api_key", "12345", overwrite=True)
+        >>> print(globals("api_key").data)  # Output: 12345
     """
     
     def __init__(self):
@@ -311,20 +341,22 @@ class GlobalVars:
             Result: A Result object indicating success or failure.
         
         Example:
-            >> globals = GlobalVars()
-            >> result = globals.set("api_key", "12345", overwrite=True)
-            >> if result.success:
-            >>     print(result.data)  # Output: Global variable 'api_key' set.
-            >> else:
-            >>     print(result.error)
+            >>> globals = GlobalVars()
+            >>> result = globals.set("api_key", "12345", overwrite=True)
+            >>> if result.success:
+            >>>     print(result.data)  # Output: Global variable 'api_key' set.
+            >>> else:
+            >>>     print(result.error)
         """
         try:
             if hasattr(self, key) and not overwrite:
                 raise KeyError(f"Global variable '{key}' already exists.")
             
             super().__setattr__(key, value)
+            self.log.log_message("INFO", f"Global variable '{key}' set.")
             return Result(True, None, None, f"Global variable '{key}' set.")
         except Exception as e:
+            self.log.log_message("ERROR", f"Failed to set global variable '{key}': {e}")
             return self._exception_tracker.get_exception_return(e)
         
     def get(self, key: str) -> Result:
@@ -338,19 +370,22 @@ class GlobalVars:
             Result: A Result object containing the value of the global variable.
 
         Example:
-            >> globals = GlobalVars()
-            >> globals.set("api_key", "12345", overwrite=True)
-            >> result = globals.get("api_key")
-            >> if result.success:
-            >>     print(result.data)  # Output: 12345
-            >> else:
-            >>     print(result.error)
+            >>> globals = GlobalVars()
+            >>> globals.set("api_key", "12345", overwrite=True)
+            >>> result = globals.get("api_key")
+            >>> if result.success:
+            >>>     print(result.data)  # Output: 12345
+            >>> else:
+            >>>     print(result.error)
         """
         try:
             if not self.exists(key):
                 raise KeyError(f"Global variable '{key}' does not exist.")
+            
+            self.log.log_message("INFO", f"Global variable '{key}' accessed.")
             return Result(True, None, None, super().__getattribute__(key))
         except Exception as e:
+            self.log.log_message("ERROR", f"Failed to get global variable '{key}': {e}")
             return self._exception_tracker.get_exception_return(e)
         
     def delete(self, key: str) -> Result:
@@ -364,21 +399,23 @@ class GlobalVars:
             Result: A Result object indicating success or failure.
 
         Example:
-            >> globals = GlobalVars()
-            >> globals.set("api_key", "12345", overwrite=True)
-            >> result = globals.delete("api_key")
-            >> if result.success and not globals.exists("api_key").data:
-            >>     print("api_key deleted successfully.")
-            >> else:
-            >>     print("Failed to delete api_key.")
+            >>> globals = GlobalVars()
+            >>> globals.set("api_key", "12345", overwrite=True)
+            >>> result = globals.delete("api_key")
+            >>> if result.success and not globals.exists("api_key").data:
+            >>>     print("api_key deleted successfully.")
+            >>> else:
+            >>>     print("Failed to delete api_key.")
         """
         try:
             if not self.exists(key):
                 raise KeyError(f"Global variable '{key}' does not exist.")
             
             super().__delattr__(key)
+            self.log.log_message("INFO", f"Global variable '{key}' deleted.")
             return Result(True, None, None, f"Global variable '{key}' deleted.")
         except Exception as e:
+            self.log.log_message("ERROR", f"Failed to delete global variable '{key}': {e}")
             return self._exception_tracker.get_exception_return(e)
         
     def clear(self) -> Result:
@@ -389,22 +426,25 @@ class GlobalVars:
             Result: A Result object indicating success or failure.
 
         Example:
-            >> globals = GlobalVars()
-            >> globals.set("api_key", "12345", overwrite=True)
-            >> globals.set("user_id", "user_01", overwrite=True)
-            >> result = globals.clear()
-            >> if result.success and len(globals.list_vars().data) == 0:
-            >>     print("All global variables cleared.")
-            >> else:
-            >>     print(result.error)
+            >>> globals = GlobalVars()
+            >>> globals.set("api_key", "12345", overwrite=True)
+            >>> globals.set("user_id", "user_01", overwrite=True)
+            >>> result = globals.clear()
+            >>> if result.success and len(globals.list_vars().data) == 0:
+            >>>     print("All global variables cleared.")
+            >>> else:
+            >>>     print(result.error)
         """
         try:
             for name in list(vars(self).keys()):
                 if name.startswith('_'):
                     continue
                 super().__delattr__(name)
+
+            self.log.log_message("INFO", "All global variables cleared.")
             return Result(True, None, None, "All global variables cleared.")
         except Exception as e:
+            self.log.log_message("ERROR", f"Failed to clear global variables: {e}")
             return self._exception_tracker.get_exception_return(e)
         
     def list_vars(self) -> Result:
@@ -415,18 +455,21 @@ class GlobalVars:
             Result: A Result object containing a list of global variable names.
 
         Example:
-            >> globals = GlobalVars()
-            >> globals.set("api_key", "12345", overwrite=True)
-            >> globals.set("user_id", "user_01", overwrite=True)
-            >> result = globals.list_vars()
-            >> if result.success:
-            >>     print(result.data)  # Output: ['api_key', 'user_id']
-            >> else:
-            >>     print(result.error)
+            >>> globals = GlobalVars()
+            >>> globals.set("api_key", "12345", overwrite=True)
+            >>> globals.set("user_id", "user_01", overwrite=True)
+            >>> result = globals.list_vars()
+            >>> if result.success:
+            >>>     print(result.data)  # Output: ['api_key', 'user_id']
+            >>> else:
+            >>>     print(result.error)
         """
         try:
+
+            self.log.log_message("INFO", "Listing all global variables.")
             return Result(True, None, None, list(vars(self).keys()))
         except Exception as e:
+            self.log.log_message("ERROR", f"Failed to list global variables: {e}")
             return self._exception_tracker.get_exception_return(e)
         
     def exists(self, key: str) -> Result:
@@ -440,18 +483,20 @@ class GlobalVars:
             Result: A Result object containing a boolean indicating existence.
 
         Example:
-            >> globals = GlobalVars()
-            >> globals.set("api_key", "12345", overwrite=True)
-            >> result = globals.exists("api_key")
-            >> if result.success:
-            >>     print(result.data)  # Output: True
-            >> else:
-            >>     print(result.error)
+            >>> globals = GlobalVars()
+            >>> globals.set("api_key", "12345", overwrite=True)
+            >>> result = globals.exists("api_key")
+            >>> if result.success:
+            >>>     print(result.data)  # Output: True
+            >>> else:
+            >>>     print(result.error)
         """
         try:
             exists = hasattr(self, key)
+            self.log.log_message("INFO", f"Checked existence of global variable '{key}': {exists}")
             return Result(True, None, None, exists)
         except Exception as e:
+            self.log.log_message("ERROR", f"Failed to check existence of global variable '{key}': {e}")
             return self._exception_tracker.get_exception_return(e)
         
     def __getattr__(self, name):
@@ -465,9 +510,9 @@ class GlobalVars:
             The value of the global variable.
 
         Example:
-            >> globals = GlobalVars()
-            >> globals.api_key = "12345"
-            >> print(globals.api_key)  # Output: 12345 ( this part uses __getattr__ )
+            >>> globals = GlobalVars()
+            >>> globals.api_key = "12345"
+            >>> print(globals.api_key)  # Output: 12345 ( this part uses __getattr__ )
         """
         try:
             if not self.exists(name).data:
@@ -488,9 +533,9 @@ class GlobalVars:
             Result: A Result object indicating success or failure.
 
         Example:
-            >> globals = GlobalVars()
-            >> globals.api_key = "12345" ( this part uses __setattr__ )
-            >> print(globals.api_key)  # Output: 12345
+            >>> globals = GlobalVars()
+            >>> globals.api_key = "12345" ( this part uses __setattr__ )
+            >>> print(globals.api_key)  # Output: 12345
         """
         try:
             super().__setattr__(name, value)
@@ -511,13 +556,13 @@ class GlobalVars:
             Result: A Result object containing the value when getting, or indicating success/failure when setting
 
         Example:
-            >> globals = GlobalVars()
-            >> globals("api_key", "12345", overwrite=True)  # Set api_key
-            >> result = globals("api_key")  # Get api_key
-            >> if result.success:
-            >>     print(result.data)  # Output: 12345
-            >> else:
-            >>     print(result.error)
+            >>> globals = GlobalVars()
+            >>> globals("api_key", "12345", overwrite=True)  # Set api_key
+            >>> result = globals("api_key")  # Get api_key
+            >>> if result.success:
+            >>>     print(result.data)  # Output: 12345
+            >>> else:
+            >>>     print(result.error)
         """
         try:
             if value is not None:

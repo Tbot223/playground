@@ -1,6 +1,6 @@
 #external Modules
 import os
-from typing import List, Union, Any
+from typing import List, Union, Any, Optional
 from pathlib import Path
 import tempfile
 import json
@@ -53,7 +53,8 @@ class FileManager:
 
     def __init__(self, is_logging_enabled: bool=True, is_debug_enabled: bool=False,
                  base_dir: Union[str, Path]=None,
-                 logger_manager_instance: LogSys.LoggerManager=None, logger: Any=None, log_instance: LogSys.Log=None, Utils_instance: Utils.Utils=None):
+                 logger_manager_instance: Optional[LogSys.LoggerManager]=None, logger: Optional[Any]=None, 
+                 log_instance: Optional[LogSys.Log]=None, Utils_instance: Optional[Utils.Utils]=None):
         
         # Initialize paths
         self._BASE_DIR = base_dir or Path(__file__).resolve().parent.parent
@@ -92,9 +93,9 @@ class FileManager:
             Path: The converted Path object.
 
         Example:
-            >> path_obj = file_manager._str_to_path("some/directory/file.txt")
-            >> print(type(path_obj))
-            >> # Output: <class 'pathlib.Path'>
+            >>> path_obj = file_manager._str_to_path("some/directory/file.txt")
+            >>> print(type(path_obj))
+            >>> # Output: <class 'pathlib.Path'>
         """
         return self._utils.str_to_path(path)
             
@@ -116,11 +117,11 @@ class FileManager:
             Result: A Result object indicating success or failure of the write operation.
 
         Example:
-            >> result = file_manager.atomic_write("example.txt", "Hello, World!")
-            >> if result.success:
-            >>     print("Write successful!")
-            >> else:
-            >>     print(f"Write failed: {result.error_message}")
+            >>> result = file_manager.atomic_write("example.txt", "Hello, World!")
+            >>> if result.success:
+            >>>     print("Write successful!")
+            >>> else:
+            >>>     print(f"Write failed: {result.error_message}")
         """
         try:
             temp_path = None
@@ -142,14 +143,17 @@ class FileManager:
                     pass  # os.fsync not available on some platforms
 
             os.replace(temp_path, file_path)
+
+            self.log.log_message("INFO", f"Successfully wrote to {file_path}")
             return Result(True, None, None, f"Successfully wrote to {file_path}")
-                
         except Exception as e:
+            self.log.log_message("ERROR", f"Failed to write to {file_path}: {e}")
             try:
                 if os.path.exists(temp_path):
                     os.unlink(temp_path)
-            except Exception:
-                pass
+                    self.log.log_message("INFO", f"Temporary file {temp_path} deleted.")
+            except Exception as ex:
+                self.log.log_message("ERROR", f"Failed to delete temporary file {temp_path}: {ex}")
             return self._exception_tracker.get_exception_return(e)
         
     def read_file(self, file_path: Union[str, Path], as_bytes: bool=False) -> Result:
@@ -167,11 +171,11 @@ class FileManager:
             Result: A Result object containing the file content in the data field.
 
         Example:
-            >> result = file_manager.read_file("example.txt")
-            >> if result.success:
-            >>     print(result.data)
-            >> else:
-            >>     print(f"Read failed: {result.error_message}")
+            >>> result = file_manager.read_file("example.txt")
+            >>> if result.success:
+            >>>     print(result.data)
+            >>> else:
+            >>>     print(f"Read failed: {result.error_message}")
         """
         try:
             file_path = self._str_to_path(file_path)
@@ -181,9 +185,11 @@ class FileManager:
 
             with open(file_path, mode, encoding=encoding) as f:
                 content = f.read()
-            return Result(True, None, None, content)
 
+            self.log.log_message("INFO", f"Successfully read from {file_path}")
+            return Result(True, None, None, content)
         except Exception as e:
+            self.log.log_message("ERROR", f"Failed to read from {file_path}: {e}")
             return self._exception_tracker.get_exception_return(e)
         
     def write_json(self, file_path: Union[str, Path], data: Any, indent: int=4) -> Result:
@@ -202,12 +208,12 @@ class FileManager:
             Result: A Result object indicating success or failure of the write operation.
 
         Example:
-            >> data = {"name": "Alice", "age": 30}
-            >> result = file_manager.write_json("data.json", data)
-            >> if result.success:
-            >>     print("JSON write successful!")
-            >> else:
-            >>     print(f"JSON write failed: {result.error_message}")
+            >>> data = {"name": "Alice", "age": 30}
+            >>> result = file_manager.write_json("data.json", data)
+            >>> if result.success:
+            >>>     print("JSON write successful!")
+            >>> else:
+            >>>     print(f"JSON write failed: {result.error_message}")
         """
         try:
             file_path = self._str_to_path(file_path)
@@ -215,8 +221,11 @@ class FileManager:
             write_result = self.atomic_write(file_path, json_data)
             if not write_result.success:
                 return write_result
+            
+            self.log.log_message("INFO", f"Successfully wrote JSON to {file_path}")
             return Result(True, None, None, f"Successfully wrote JSON to {file_path}")
         except Exception as e:
+            self.log.log_message("ERROR", f"Failed to write JSON to {file_path}: {e}")
             return self._exception_tracker.get_exception_return(e)
         
     def read_json(self, file_path: Union[str, Path]) -> Result:
@@ -232,11 +241,11 @@ class FileManager:
             Result: A Result object containing the parsed JSON data in the data field.
 
         Example:
-            >> result = file_manager.read_json("data.json")
-            >> if result.success:
-            >>     print(result.data)
-            >> else:
-            >>     print(f"JSON read failed: {result.error_message}")
+            >>> result = file_manager.read_json("data.json")
+            >>> if result.success:
+            >>>     print(result.data)
+            >>> else:
+            >>>     print(f"JSON read failed: {result.error_message}")
         """
         try:
             file_path = self._str_to_path(file_path)
@@ -248,8 +257,11 @@ class FileManager:
             read_result = self.read_file(file_path, as_bytes=False)
             if not read_result.success:
                 return read_result
+            
+            self.log.log_message("INFO", f"Successfully read JSON from {file_path}")
             return Result(True, None, None, read_result.data)
         except Exception as e:
+            self.log.log_message("ERROR", f"Failed to read JSON from {file_path}: {e}")
             return self._exception_tracker.get_exception_return(e)
         
     def list_of_files(self, dir_path: Union[str, Path], extensions: List[str]=None, only_name: bool = False) -> Result:
@@ -269,11 +281,11 @@ class FileManager:
             Result: A Result object containing the list of file paths or names in the data field.
 
         Example:
-            >> result = file_manager.list_of_files("some/directory", extensions=[".txt", ".md"], only_name=True)
-            >> if result.success:
-            >>     print(result.data)
-            >> else:
-            >>     print(f"Listing files failed: {result.error_message}")
+            >>> result = file_manager.list_of_files("some/directory", extensions=[".txt", ".md"], only_name=True)
+            >>> if result.success:
+            >>>     print(result.data)
+            >>> else:
+            >>>     print(f"Listing files failed: {result.error_message}")
         """
         try:
             dir_path = self._str_to_path(dir_path)
@@ -292,8 +304,10 @@ class FileManager:
             for item in dir_path.iterdir():
                 files.append(is_matching_file(item))
 
+            self.log.log_message("INFO", f"Successfully listed files in {dir_path}")
             return Result(True, None, None, files)
         except Exception as e:
+            self.log.log_message("ERROR", f"Failed to list files in {dir_path}: {e}")
             return self._exception_tracker.get_exception_return(e)
         
     def delete_file(self, file_path: Union[str, Path]) -> Result:
@@ -309,11 +323,11 @@ class FileManager:
             Result: A Result object indicating success or failure of the delete operation.
         
         Example:
-            >> result = file_manager.delete_file("example.txt")
-            >> if result.success:
-            >>     print("File deleted successfully!")
-            >> else:
-            >>     print(f"File deletion failed: {result.error_message}")
+            >>> result = file_manager.delete_file("example.txt")
+            >>> if result.success:
+            >>>     print("File deleted successfully!")
+            >>> else:
+            >>>     print(f"File deletion failed: {result.error_message}")
         """
         try:
             file_path = self._str_to_path(file_path)
@@ -322,11 +336,14 @@ class FileManager:
             try:
                 file_path.unlink()
             except PermissionError:
+                self.log.log_message("ERROR", f"Permission denied when deleting {file_path}, attempting to change permissions and retry.")  
                 os.chmod(file_path, stat.S_IWRITE)
                 file_path.unlink()
-
+                
+            self.log.log_message("INFO", f"Successfully deleted {file_path}")
             return Result(True, None, None, f"Successfully deleted {file_path}")
         except Exception as e:
+            self.log.log_message("ERROR", f"Failed to delete {file_path}: {e}")
             return self._exception_tracker.get_exception_return(e)
         
     def delete_directory(self, dir_path: Union[str, Path]) -> Result:
@@ -342,11 +359,11 @@ class FileManager:
             Result: A Result object indicating success or failure of the delete operation.
 
         Example:
-            >> result = file_manager.delete_directory("some/directory")
-            >> if result.success:
-            >>     print("Directory deleted successfully!")
-            >> else:
-            >>     print(f"Directory deletion failed: {result.error_message}")
+            >>> result = file_manager.delete_directory("some/directory")
+            >>> if result.success:
+            >>>     print("Directory deleted successfully!")
+            >>> else:
+            >>>     print(f"Directory deletion failed: {result.error_message}")
         """
         try:
             dir_path = self._str_to_path(dir_path)
@@ -358,10 +375,13 @@ class FileManager:
             try:
                 shutil.rmtree(dir_path)
             except PermissionError:
+                self.log.log_message("ERROR", f"Permission denied when deleting {dir_path}, attempting to change permissions and retry.")
                 shutil.rmtree(dir_path, onexc=self._handle_exc)
 
+            self.log.log_message("INFO", f"Successfully deleted directory {dir_path}")
             return Result(True, None, None, f"Successfully deleted directory {dir_path}")
         except Exception as e:
+            self.log.log_message("ERROR", f"Failed to delete directory {dir_path}: {e}")
             return self._exception_tracker.get_exception_return(e)
         
     def create_directory(self, dir_path: Union[str, Path]) -> Result:
@@ -377,17 +397,20 @@ class FileManager:
             Result: A Result object indicating success or failure of the create operation.
 
         Example:
-            >> result = file_manager.create_directory("some/new/directory")
-            >> if result.success:
-            >>     print("Directory created successfully!")
-            >> else:
-            >>     print(f"Directory creation failed: {result.error_message}")
+            >>> result = file_manager.create_directory("some/new/directory")
+            >>> if result.success:
+            >>>     print("Directory created successfully!")
+            >>> else:
+            >>>     print(f"Directory creation failed: {result.error_message}")
         """
         try:
             dir_path = self._str_to_path(dir_path)
             dir_path.mkdir(parents=True, exist_ok=True)
+
+            self.log.log_message("INFO", f"Successfully created directory {dir_path}")
             return Result(True, None, None, f"Successfully created directory {dir_path}")
         except Exception as e:
+            self.log.log_message("ERROR", f"Failed to create directory {dir_path}: {e}")
             return self._exception_tracker.get_exception_return(e)
         
     # __enter__ and __exit__

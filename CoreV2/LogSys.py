@@ -50,12 +50,12 @@ class LoggerManager:
             Result: A Result object indicating success or failure of logger creation.
 
         Example:
-            >> logger_manager = LoggerManager()
-            >> result = logger_manager.make_logger("my_logger", logging.DEBUG)
-            >> if result.success:
-            >>     print(result.data) # Logger 'my_logger' created successfully.
-            >> else:
-            >>     print(result.error)
+            >>> logger_manager = LoggerManager()
+            >>> result = logger_manager.make_logger("my_logger", logging.DEBUG)
+            >>> if result.success:
+            >>>     print(result.data) # Logger 'my_logger' created successfully.
+            >>> else:
+            >>>     print(result.error)
         """
         try:
             # Duplicate check
@@ -106,14 +106,14 @@ class LoggerManager:
             Result: A Result object containing the logger instance if found.
 
         Example:
-            >> logger_manager = LoggerManager()
-            >> logger_manager.make_logger("my_logger", logging.DEBUG)
-            >> result = logger_manager.get_logger("my_logger")
-            >> if result.success:
-            >>     logger = result.data
-            >>     logger.info("This is a test log message.")
-            >> else:
-            >>     print(result.error)        
+            >>> logger_manager = LoggerManager()
+            >>> logger_manager.make_logger("my_logger", logging.DEBUG)
+            >>> result = logger_manager.get_logger("my_logger")
+            >>> if result.success:
+            >>>     logger = result.data
+            >>>     logger.info("This is a test log message.")
+            >>> else:
+            >>>     print(result.error)        
         """
         try:
             if logger_name not in self._loggers:
@@ -159,18 +159,18 @@ class Log:
             Result: A Result object indicating success or failure of the logging operation.
 
         Example:
-            >> logger_manager = LoggerManager()
-            >> logger_result = logger_manager.make_logger("app_logger", logging.INFO)
-            >> if logger_result.success:
-            >>     logger = logger_result.data
-            >>     log_system = Log(logger)
-            >>     log_result = log_system.log_message('INFO', "This is an info message
-            >>     if log_result.success:
-            >>         print("Log message sent successfully.")
-            >>     else:
-            >>         print(log_result.error)
-            >> else:
-            >>     print(logger_result.error)
+            >>> logger_manager = LoggerManager()
+            >>> logger_result = logger_manager.make_logger("app_logger", logging.INFO)
+            >>> if logger_result.success:
+            >>>     logger = logger_result.data
+            >>>     log_system = Log(logger)
+            >>>     log_result = log_system.log_message('INFO', "This is an info message
+            >>>     if log_result.success:
+            >>>         print("Log message sent successfully.")
+            >>>     else:
+            >>>         print(log_result.error)
+            >>> else:
+            >>>     print(logger_result.error)
         """
         if self.logger is None:
             return Result(False, None, None, "Logger is not initialized.")
