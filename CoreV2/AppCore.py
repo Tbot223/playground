@@ -59,7 +59,8 @@ class AppCore:
 
         # Initialize paths
         self._PARENT_DIR = base_dir or Path(__file__).resolve().parent.parent
-        self._LANG_DIR = self._PARENT_DIR / "Languages"    
+        self._LANG_DIR = self._PARENT_DIR / "Languages"
+        Path.mkdir(self._LANG_DIR, exist_ok=True)
 
         # Initialize Flags
         self.is_logging_enabled = is_logging_enabled

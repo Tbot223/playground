@@ -97,7 +97,9 @@ class FileManager:
             >>> print(type(path_obj))
             >>> # Output: <class 'pathlib.Path'>
         """
-        return self._utils.str_to_path(path)
+        if isinstance(path, Path):
+            return path
+        return self._utils.str_to_path(path).data
             
 
     def atomic_write(self, file_path: Union[str, Path], data: Any) -> Result:
@@ -295,13 +297,13 @@ class FileManager:
                 raise NotADirectoryError(f"Not a directory: {dir_path}")
 
             def is_matching_file(item: Path) -> str:
-                if os.path.isfile(item):
-                    return
                 if extensions is None or item.suffix.lower() in extensions:
                     return item.stem if only_name else str(item)
 
             files = []
             for item in dir_path.iterdir():
+                if item.is_dir():
+                    continue
                 files.append(is_matching_file(item))
 
             self.log.log_message("INFO", f"Successfully listed files in {dir_path}")
