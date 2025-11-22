@@ -47,7 +47,7 @@ class Utils:
         if self.is_logging_enabled:
             self._logger_manager = logger_manager_instance or LogSys.LoggerManager(base_dir=self._BASE_DIR / "logs", second_log_dir="utils")
             self._logger_manager.make_logger("UtilsLogger")
-            self._logger = logger or self._logger_manager.get_logger("UtilsLogger")
+            self._logger = logger or self._logger_manager.get_logger("UtilsLogger").data
         self.log = log_instance or LogSys.Log(logger=self._logger)
 
         self.log.log_message("INFO", "Utils initialized.")

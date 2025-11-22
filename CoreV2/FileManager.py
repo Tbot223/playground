@@ -70,7 +70,7 @@ class FileManager:
         if self.is_logging_enabled:
             self._logger_manager = logger_manager_instance or LogSys.LoggerManager(base_dir=self._BASE_DIR / "logs", second_log_dir="file_manager")
             self._logger_manager.make_logger("FileManagerLogger")
-            self.logger = logger or self._logger_manager.get_logger("FileManagerLogger")
+            self.logger = logger or self._logger_manager.get_logger("FileManagerLogger").data
         self.log = log_instance or LogSys.Log(logger=self.logger)
         self._utils = Utils_instance or Utils.Utils()
 

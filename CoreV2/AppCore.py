@@ -72,7 +72,7 @@ class AppCore:
         if self.is_logging_enabled:
             self._logger_manager = logger_manager_instance or LogSys.LoggerManager(base_dir=self._PARENT_DIR / "logs", second_log_dir="app_core")
             self._logger_manager.make_logger("AppCoreLogger")
-            self.logger = logger or self._logger_manager.get_logger("AppCoreLogger")
+            self.logger = logger or self._logger_manager.get_logger("AppCoreLogger").data
         self.log = log_instance or LogSys.Log(logger=self.logger)
         self._file_manager  = filemanager or FileManager.FileManager(is_logging_enabled=False, base_dir=self._PARENT_DIR)
         
@@ -118,7 +118,7 @@ class AppCore:
             return False, f"workers {workers} exceeds number of tasks {len(data)}"
         if timeout is None or not isinstance(timeout, (int, float)) or timeout <= 0.1:
             return False, "timeout must be a positive number"
-        return True
+        return True, None
     
     def _generic_executor(self, data: List[Tuple[Callable[ ... , Any], Dict]], workers: int, timeout: float, type: str) -> List[Result]:
         """
@@ -143,7 +143,7 @@ class AppCore:
         results = [None] * len(data)
 
         executor_type = ThreadPoolExecutor if type == 'thread' else ProcessPoolExecutor
-        with executor_type(workers=workers) as executor:
+        with executor_type(max_workers=workers) as executor:
             future_to_task = {executor.submit(func, **params): idx for idx, (func, params) in enumerate(data)}
 
             for future in as_completed(future_to_task):

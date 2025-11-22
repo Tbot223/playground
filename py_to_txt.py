@@ -37,6 +37,8 @@ class PyToTxtConverter:
         with txt_file_path.open('w', encoding='utf-8') as txt_file:
             txt_file.write(code_content)
 
+        print(f"Converted {py_file_path} to {txt_file_path}.")
+
     
     def convert_py_to_txt_by_dir(self, target_dir: Union[str, Path], txt_dir: Union[str, Path]) -> None:
         """
@@ -68,8 +70,10 @@ class PyToTxtConverter:
             self.convert_py_to_txt(py_file, txt_file)
 
 if __name__ == "__main__":
+    print(f"Running Dir : {os.getcwd()}")
     target_directory = input("Enter the target directory path containing .py files: ")
     txt_directory = input("Enter the directory path to save .txt files: ")
     converter = PyToTxtConverter()
     converter.convert_py_to_txt_by_dir(target_directory, txt_directory)
+    print("Conversion completed.")
     subprocess.run("pause", shell=True)
