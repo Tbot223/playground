@@ -2,7 +2,7 @@
 import os
 import subprocess
 import sys
-from typing import Any, Callable, List, Dict, Tuple, Union, Optional
+from typing import Any, Callable, List, Dict, Tuple, Union, Optional, Generator
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
 
@@ -86,7 +86,7 @@ class AppCore:
     
     # internal Methods
     @staticmethod
-    def _check_executable(data: List[Tuple[Callable[ ... , Any], Dict]], workers: int, override: bool, timeout: float) -> Union[bool, str]:
+    def _check_executable(data: List[Tuple[Callable[ ... , Any], Dict]], workers: int, override: bool, timeout: float, chunk_size: Optional[int] = None) -> Union[bool, str]:
         """
         Check if the functions in data and workers are valid for execution.
         
@@ -111,14 +111,16 @@ class AppCore:
         if not isinstance(data, list) or len(data) == 0:
             return False, "Data must be a non-empty list"
         for item in data:
-            if not (isinstance(item, tuple) and len(item) == 2 or not callable(item[0]) or not isinstance(item[1], dict)):
-                return False, "Each item in data must be a tuple of (callable, dict)"
+            if not (isinstance(item, tuple) and len(item) == 2 and callable(item[0]) and isinstance(item[1], dict)):
+                return False, "Each item in data must be a tuple of (function, kwargs_dict)"
         if workers is None or not isinstance(workers, int) or workers <= 0:
             return False, "workers must be a positive integer"
         if workers > len(data) and not override:
             return False, f"workers {workers} exceeds number of tasks {len(data)}"
         if timeout is None or not isinstance(timeout, (int, float)) or timeout <= 0.1:
             return False, "timeout must be a positive number"
+        if chunk_size is not None and (not isinstance(chunk_size, int) or chunk_size <= 0):
+            return False, "chunk_size must be a positive integer"
         return True, None
     
     def _generic_executor(self, data: List[Tuple[Callable[ ... , Any], Dict]], workers: int, timeout: float, type: str) -> List[Result]:
@@ -157,7 +159,27 @@ class AppCore:
                     results[idx] = self._exception_tracker.get_exception_return(e, params=data[idx][1])
         return results
     
-    def _lookup_dict(self, dict_obj: Dict, threshold: Union[int, float, str, bool], comparison_func: Callable, comparison_type: str, nested: bool) -> List:
+    def _chunk_list(self, data_list: List, chunk_size: int) -> Generator[List, None, None]:
+        """
+        Helper method to split a list into smaller chunks.
+
+        Args:
+            data_list : The list to be chunked.
+            chunk_size : The size of each chunk.
+
+        Returns:
+            A list of chunks (sublists).
+
+        Example:
+            >>> # I'm not recommending to call this method directly, it's for internal use.
+            >>> my_list = [1, 2, 3, 4, 5, 6, 7]
+            >>> chunks = app_core._chunk_list(my_list, chunk_size=3)
+            >>> print(chunks)  # Output: [[1, 2, 3], [4, 5, 6], [7]]
+        """
+        for i in range(0, len(data_list), chunk_size):
+            yield data_list[i:i + chunk_size]
+    
+    def _lookup_dict(self, dict_obj: Dict, threshold: Union[int, float, str, bool], comparison_func: Callable, comparison_type: str, nested: bool, nest_mark: str = "") -> List:
         """
         Helper method to recursively look up keys in a dictionary based on a comparison function.
 
@@ -179,16 +201,16 @@ class AppCore:
         """
         found_keys = []
         for key, value in dict_obj.items():
-            if isinstance(value, (str, bool)) == isinstance(threshold, str, bool) and comparison_type in ['eq', 'ne']:
-                if comparison_func(value):
-                    found_keys.append(key)
+            if isinstance(value, (str, bool)) != isinstance(threshold, (str, bool)) and comparison_type in ['eq', 'ne']:
+                continue
             if isinstance(value, (tuple, list)):
                 continue
             if comparison_func(value):
-                found_keys.append(key)
+                found_keys.append(f"{nest_mark}{key}")
+                print(f"Matched key: {nest_mark}{key} with value: {value}")
             if nested and isinstance(value, dict):
                 self.log.log_message("DEBUG", f"Searching nested dictionary at key '{key}'.")
-                found_keys.append(self._lookup_dict(value, threshold, comparison_func, comparison_type, nested))
+                found_keys.extend(self._lookup_dict(value, threshold, comparison_func, comparison_type, nested, f"{nest_mark}{key}."))
         return found_keys
 
     # external Methods
@@ -200,7 +222,7 @@ class AppCore:
             data : 
             workers : Number of worker threads to use. Defaults to os.cpu_count() * 2.
             override : If True, allows workers to exceed the number of tasks.
-            timeout : Maximum time to wait for each function to complete.
+            timeout : Maximum time to wait for each function to complete. ( 0.1 seconds minimum )
 
         Returns:
             indexed list of Result objects corresponding to each function execution.
@@ -214,6 +236,7 @@ class AppCore:
         try:
             is_valid, error_message = self._check_executable(data, workers, override, timeout)
             if not is_valid:
+                self.log.log_message("ERROR", f"Thread pool executor validation failed: {error_message}")
                 return Result(False, error_message, None, None)
             workers = min(workers or os.cpu_count() * 2, os.cpu_count() * 2)
             results = self._generic_executor(data, workers, timeout, type='thread')
@@ -224,7 +247,7 @@ class AppCore:
             self.log.log_message("ERROR", f"Error in thread pool executor: {str(e)}")
             return self._exception_tracker.get_exception_return(e)
 
-    def process_pool_executor(self, data: List[Tuple[Callable[ ... , Any], Dict]], workers: int = None, override: bool = False, timeout: float = None) -> Result:
+    def process_pool_executor(self, data: List[Tuple[Callable[ ... , Any], Dict]], workers: int = None, override: bool = False, timeout: float = None, chunk_size: Optional[int] = None) -> Result:
         """
         Execute functions in parallel using ProcessPoolExecutor.
 
@@ -232,7 +255,7 @@ class AppCore:
             data : example: [(func1, {'arg1': val1}), (func2
             workers : Number of worker processes to use. Defaults to os.cpu_count() * 2.
             override : If True, allows workers to exceed the number of tasks.
-            timeout : Maximum time to wait for each function to complete.
+            timeout : Maximum time to wait for each function to complete. ( 0.1 seconds minimum )
 
         Returns:
             indexed list of Result objects corresponding to each function execution.
@@ -244,11 +267,16 @@ class AppCore:
             >>>     print(res.success, res.data)
         """
         try:
-            is_valid, error_message = self._check_executable(data, workers, override, timeout)
+            is_valid, error_message = self._check_executable(data, workers, override, timeout, chunk_size)
             if not is_valid:
+                self.log.log_message("ERROR", f"Process pool executor validation failed: {error_message}")
                 return Result(False, error_message, None, None)
             workers = min(workers or os.cpu_count() * 2, os.cpu_count() * 2)
-            results = self._generic_executor(data, workers, timeout, type='process')
+            chunks = list(self._chunk_list(data, chunk_size or int(len(data)/workers)))
+            results = []
+            for chunk in chunks:
+                chunk_results = self._generic_executor(chunk, workers, timeout, type='process')
+                results.extend(chunk_results)
 
             self.log.log_message("INFO", f"Process pool executor completed with {len(results)} tasks.")
             return Result(True, None, None, results)
@@ -297,7 +325,7 @@ class AppCore:
             if comparison not in comparison_operators:
                 raise ValueError(f"Unsupported comparison operator: {comparison}")
             if isinstance(dict_obj, dict) is False:
-                raise ValueError("Input is not a dictionary")
+                raise ValueError("Input data must be a dictionary")
             if isinstance(threshold, (str, bool, int, float)) is False:
                 raise ValueError("Threshold must be of type str, bool, int, or float")
             
@@ -390,7 +418,7 @@ class AppCore:
         """
         try:
             self.log.log_message("INFO", f"Exiting application with code {code}.")
-            os._exit(code)
+            sys.exit(code)
         except Exception as e:
             self.log.log_message("ERROR", f"Error in exit_application: {str(e)}")
             return self._exception_tracker.get_exception_return(e)

@@ -256,12 +256,12 @@ class FileManager:
             if file_path.suffix.lower() != '.json':
                 raise ValueError("File extension is not .json")
 
-            read_result = self.read_file(file_path, as_bytes=False)
+            read_result = self.read_file(file_path)
             if not read_result.success:
                 return read_result
             
             self.log.log_message("INFO", f"Successfully read JSON from {file_path}")
-            return Result(True, None, None, read_result.data)
+            return Result(True, None, None, json.loads(read_result.data))
         except Exception as e:
             self.log.log_message("ERROR", f"Failed to read JSON from {file_path}: {e}")
             return self._exception_tracker.get_exception_return(e)
