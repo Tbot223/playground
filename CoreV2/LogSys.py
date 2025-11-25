@@ -69,7 +69,7 @@ class LoggerManager:
             logger.propagate = False  # Prevent duplicate log output
 
             # Create a log file
-            log_filename = self._BASE_DIR / self.second_log_dir / f"{logger_name}_{time or self._started_time}.log"
+            log_filename = self._BASE_DIR / self.second_log_dir / f"{time or self._started_time}_log" / f"{logger_name}.log"
             os.makedirs(os.path.dirname(log_filename), exist_ok=True)
 
             # Prevent duplicate handlers
@@ -91,7 +91,7 @@ class LoggerManager:
             console_handler.setFormatter(formatter)
             logger.addHandler(console_handler)
 
-            return Result(True, logger, None, f"Logger '{logger_name}' created successfully.")
+            return Result(True, None, None, f"Logger '{logger_name}' created successfully.")
         except Exception as e:
             return ExceptionTracker().get_exception_return(e)
         

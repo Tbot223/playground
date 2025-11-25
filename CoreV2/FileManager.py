@@ -6,6 +6,7 @@ import tempfile
 import json
 import shutil
 import stat
+import fcntl
 
 #internal Modules
 from CoreV2.Result import Result
@@ -79,6 +80,19 @@ class FileManager:
     # internal Methods
     @staticmethod
     def _handle_exc(func, path, exc_info):
+        """
+        Handle exceptions during file operations by changing file permissions and retrying.
+        Args:
+            - func : The function to retry.
+            - path : The path to the file or directory.
+            - exc_info : Exception information.
+            
+        Example:
+            >>> file_manager._handle_exc(os.remove, "some/protected/file.txt", exc_info)
+        """
+        exc_type, exc_value, exc_tb = exc_info
+        if not issubclass(exc_type, PermissionError):
+            raise exc_value
         os.chmod(path, stat.S_IWRITE)
         func(path)
 
@@ -126,7 +140,6 @@ class FileManager:
             >>>     print(f"Write failed: {result.error_message}")
         """
         try:
-            temp_path = None
             file_path = self._str_to_path(file_path)
             if not file_path.parent.exists():
                 file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -134,6 +147,14 @@ class FileManager:
             is_bytes = isinstance(data, bytes)
             mode = 'wb' if is_bytes else 'w'
             encoding = None if is_bytes else 'utf-8'
+
+            def replace_temp_with_target(temp_path: Path, target_path: Path):
+                with open(target_path, "a+b") as f:
+                    fcntl.flock(f, fcntl.LOCK_EX)
+                    try:
+                        os.replace(temp_path, target_path)
+                    finally:
+                        fcntl.flock(f, fcntl.LOCK_UN)
 
             with tempfile.NamedTemporaryFile(mode, delete=False, dir=str(file_path.parent), encoding=encoding) as temp:
                 temp_path = Path(temp.name)
@@ -143,8 +164,7 @@ class FileManager:
                     os.fsync(temp.fileno())
                 except (AttributeError, OSError):
                     pass  # os.fsync not available on some platforms
-
-            os.replace(temp_path, file_path)
+                replace_temp_with_target(temp_path, file_path)
 
             self.log.log_message("INFO", f"Successfully wrote to {file_path}")
             return Result(True, None, None, f"Successfully wrote to {file_path}")
@@ -164,6 +184,7 @@ class FileManager:
 
         - If as_bytes is True, read in binary mode; otherwise, read in text mode with utf-8 encoding.
         - Return the content in the data field of the Result object.
+        - Use file locking to ensure safe read operations.
 
         Args:
             - file_path : The path to the file to read.
@@ -184,9 +205,20 @@ class FileManager:
 
             mode = 'rb' if as_bytes else 'r'
             encoding = None if as_bytes else 'utf-8'
+            LOCK = (os.path.getsize(file_path) > 1024 * 1024 * 10)  # Lock files larger than 10MB
 
+            def safe_read(f, lock):
+                if lock:
+                    fcntl.flock(f, fcntl.LOCK_SH)
+                try:
+                    content = f.read()
+                finally:
+                    if lock:
+                        fcntl.flock(f, fcntl.LOCK_UN)
+                return content
+            
             with open(file_path, mode, encoding=encoding) as f:
-                content = f.read()
+                content = safe_read(f, LOCK)
 
             self.log.log_message("INFO", f"Successfully read from {file_path}")
             return Result(True, None, None, content)
@@ -266,7 +298,7 @@ class FileManager:
             self.log.log_message("ERROR", f"Failed to read JSON from {file_path}: {e}")
             return self._exception_tracker.get_exception_return(e)
         
-    def list_of_files(self, dir_path: Union[str, Path], extensions: List[str]=None, only_name: bool = False) -> Result:
+    def list_of_files(self, dir_path: Union[str, Path], extensions: List[str]=[], only_name: bool = False) -> Result:
         """
         List all files in the directory at "dir_path"
 
@@ -291,25 +323,55 @@ class FileManager:
         """
         try:
             dir_path = self._str_to_path(dir_path)
-            extensions = [ext.lower() for ext in extensions] if extensions is not None else []
+            extensions = extensions or [ext.lower() for ext in extensions]
 
             if not dir_path.is_dir():
                 raise NotADirectoryError(f"Not a directory: {dir_path}")
 
-            def is_matching_file(item: Path) -> str:
-                if extensions is None or item.suffix.lower() in extensions:
-                    return item.stem if only_name else str(item)
+            def is_matching_file(item: Path, list_obj: list) -> str:
+                if extensions == [] or item.suffix.lower() in extensions:
+                    list_obj.append(item.stem if only_name else str(item))
 
             files = []
             for item in dir_path.iterdir():
                 if item.is_dir():
                     continue
-                files.append(is_matching_file(item))
+                is_matching_file(item, files)
 
             self.log.log_message("INFO", f"Successfully listed files in {dir_path}")
             return Result(True, None, None, files)
         except Exception as e:
             self.log.log_message("ERROR", f"Failed to list files in {dir_path}: {e}")
+            return self._exception_tracker.get_exception_return(e)
+        
+    def exist(self, path: Union[str, Path]) -> Result:
+        """
+        Check if the file or directory at "path" exists
+
+        Args:
+            - path : The path to the file or directory to check.
+
+        Returns:
+            Result: A Result object containing a boolean in the data field indicating existence.
+
+        Example:
+            >>> result = file_manager.exist("some/file_or_directory")
+            >>> if result.success:
+            >>>     if result.data:
+            >>>         print("Path exists!")
+            >>>     else:
+            >>>         print("Path does not exist.")
+            >>> else:
+            >>>     print(f"Existence check failed: {result.error_message}")
+        """
+        try:
+            path = self._str_to_path(path)
+            exists = path.exists()
+
+            self.log.log_message("INFO", f"Existence check for {path}: {exists}")
+            return Result(True, None, None, exists)
+        except Exception as e:
+            self.log.log_message("ERROR", f"Failed to check existence for {path}: {e}")
             return self._exception_tracker.get_exception_return(e)
         
     def delete_file(self, file_path: Union[str, Path]) -> Result:

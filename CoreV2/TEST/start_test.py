@@ -1,30 +1,28 @@
 # external Modules
+import pytest
+from pathlib import Path
 
 # internal Modules
 from CoreV2.TEST.SRC import AppCore_test, Exception_test, LogSys_test, Utils_test, FileManager_test
 
 class Test_CoreV2:
     def test_AppCore(self):
-        pass
+        pytest.main([AppCore_test.__file__])
 
     def test_Exception(self):
-        pass
+        pytest.main([Exception_test.__file__])
 
     def test_LogSys(self):
-        pass
+        pytest.main([LogSys_test.__file__])
 
     def test_Utils(self):
-        pass
+        pytest.main([Utils_test.__file__])
 
     def test_FileManager(self):
-        pass
+        pytest.main([FileManager_test.__file__])
 
     def run_all_tests(self):
-        AppCore_test.run_tests()
-        Exception_test.run_tests()
-        LogSys_test.run_tests()
-        Utils_test.run_tests()
-        FileManager_test.run_tests()
+        pytest.main([str(Path(__file__).parent / "SRC")])
 
 if __name__ == "__main__":
     tester = Test_CoreV2()

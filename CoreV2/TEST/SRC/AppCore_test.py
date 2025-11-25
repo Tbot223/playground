@@ -45,7 +45,7 @@ class HelperMethods:
         """
         return f"dummy, {x}"
     
-@pytest.mark.usefixtures("tmp_path", "test_appcore_initialization", "helper_methods")
+@pytest.mark.usefixtures("test_appcore_initialization", "helper_methods")
 class TestAppCore:
     def test_initialization(self, test_appcore_initialization: AppCore.AppCore) -> None:
         """

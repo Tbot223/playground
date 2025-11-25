@@ -272,7 +272,7 @@ class GlobalVars:
     """
     This class manages global variables in a controlled manner.
 
-    RecRecommended usage:
+    Recommended usage:
     - Beginners use explicit methods.
     - Advanced users can use attribute access or call syntax.
 
@@ -314,19 +314,44 @@ class GlobalVars:
         >>> else:
         >>>     print(result.error)
 
-        or using attribute access:
+        >>> # or using attribute access:
 
         >>> globals.api_key = "12345"
         >>> print(globals.api_key)  # Output: 12345
         
-        or using call syntax:
+        >>> # or using call syntax:
 
         >>> globals("api_key", "12345", overwrite=True)
         >>> print(globals("api_key").data)  # Output: 12345
     """
     
-    def __init__(self):
-        self ._exception_tracker = ExceptionTracker()
+    def __init__(self, is_logging_enabled: bool=False,
+                 base_dir: Optional[Path]=None,
+                 logger_manager_instance: Optional[LogSys.LoggerManager]=None, logger: Optional[Any]=None, 
+                 log_instance: Optional[LogSys.Log]=None):
+        
+        # Set initialization flag to bypass __setattr__ during __init__
+        object.__setattr__(self, '_initializing', True)
+        object.__setattr__(self, 'vars', {})
+        
+        # Initialize Paths
+        self._BASE_DIR = base_dir or Path(__file__).resolve().parent.parent
+
+        # Initialize Flags
+        self.is_logging_enabled = is_logging_enabled
+
+        # Initialize Classes
+        self._exception_tracker = ExceptionTracker()
+        self._logger_manager = None
+        self._logger = None
+        if self.is_logging_enabled:
+            self._logger_manager = logger_manager_instance or LogSys.LoggerManager(base_dir=self._BASE_DIR / "logs", second_log_dir="global_vars")
+            self._logger_manager.make_logger("GlobalVarsLogger")
+            self._logger = logger or self._logger_manager.get_logger("GlobalVarsLogger").data
+        self.log = log_instance or LogSys.Log(logger=self._logger)
+        
+        # Initialization complete
+        object.__setattr__(self, '_initializing', False)
         
     def set(self, key: str, value: object, overwrite: bool=False) -> Result:
         """
@@ -349,10 +374,12 @@ class GlobalVars:
             >>>     print(result.error)
         """
         try:
-            if hasattr(self, key) and not overwrite:
+            if self.exists(key).data and not overwrite:
                 raise KeyError(f"Global variable '{key}' already exists.")
+            if key is None or not isinstance(key, str) or key.strip() == "":
+                raise ValueError("key must be a non-empty string.")
             
-            super().__setattr__(key, value)
+            self.vars[key] = value
             self.log.log_message("INFO", f"Global variable '{key}' set.")
             return Result(True, None, None, f"Global variable '{key}' set.")
         except Exception as e:
@@ -383,7 +410,7 @@ class GlobalVars:
                 raise KeyError(f"Global variable '{key}' does not exist.")
             
             self.log.log_message("INFO", f"Global variable '{key}' accessed.")
-            return Result(True, None, None, super().__getattribute__(key))
+            return Result(True, None, None, self.vars[key])
         except Exception as e:
             self.log.log_message("ERROR", f"Failed to get global variable '{key}': {e}")
             return self._exception_tracker.get_exception_return(e)
@@ -411,7 +438,7 @@ class GlobalVars:
             if not self.exists(key):
                 raise KeyError(f"Global variable '{key}' does not exist.")
             
-            super().__delattr__(key)
+            del self.vars[key]
             self.log.log_message("INFO", f"Global variable '{key}' deleted.")
             return Result(True, None, None, f"Global variable '{key}' deleted.")
         except Exception as e:
@@ -436,10 +463,8 @@ class GlobalVars:
             >>>     print(result.error)
         """
         try:
-            for name in list(vars(self).keys()):
-                if name.startswith('_'):
-                    continue
-                super().__delattr__(name)
+            for name in list(self.vars.keys()):
+                del self.vars[name]
 
             self.log.log_message("INFO", "All global variables cleared.")
             return Result(True, None, None, "All global variables cleared.")
@@ -467,7 +492,7 @@ class GlobalVars:
         try:
 
             self.log.log_message("INFO", "Listing all global variables.")
-            return Result(True, None, None, list(vars(self).keys()))
+            return Result(True, None, None, list(self.vars.keys()))
         except Exception as e:
             self.log.log_message("ERROR", f"Failed to list global variables: {e}")
             return self._exception_tracker.get_exception_return(e)
@@ -492,7 +517,7 @@ class GlobalVars:
             >>>     print(result.error)
         """
         try:
-            exists = hasattr(self, key)
+            exists = key in self.vars
             self.log.log_message("INFO", f"Checked existence of global variable '{key}': {exists}")
             return Result(True, None, None, exists)
         except Exception as e:
@@ -516,8 +541,8 @@ class GlobalVars:
         """
         try:
             if not self.exists(name).data:
-                raise AttributeError(f"Global variable '{name}' does not exist.")
-            return super().__getattribute__(name)
+                raise KeyError(f"Global variable '{name}' does not exist.")
+            return self.vars[name]
         except Exception as e:
             return self._exception_tracker.get_exception_return(e)
         
@@ -537,10 +562,26 @@ class GlobalVars:
             >>> globals.api_key = "12345" ( this part uses __setattr__ )
             >>> print(globals.api_key)  # Output: 12345
         """
+        # During initialization, use normal attribute setting
         try:
-            super().__setattr__(name, value)
+            if object.__getattribute__(self, '_initializing'):
+                object.__setattr__(self, name, value)
+                return
+        except AttributeError:
+            # _initializing not set yet, must be during early init
+            object.__setattr__(self, name, value)
+            return
+        
+        # After initialization, store in vars dict
+        try:
+            if name is None or not isinstance(name, str) or name.strip() == "":
+                raise ValueError("name must be a non-empty string.")
+            
+            vars_dict = object.__getattribute__(self, 'vars')
+            vars_dict[name] = value
         except Exception as e:
-            return self._exception_tracker.get_exception_return(e)
+            exception_tracker = object.__getattribute__(self, '_exception_tracker')
+            return exception_tracker.get_exception_return(e)
         
     def __call__(self, key: str, value: Optional[object]=None, overwrite: bool=False) -> Result:
         """
@@ -567,7 +608,9 @@ class GlobalVars:
         try:
             if value is not None:
                 return self.set(key, value, overwrite)
-            else:
+            elif value is None:
                 return self.get(key)
+            else:
+                raise ValueError("Invalid arguments provided.")
         except Exception as e:
             return self._exception_tracker.get_exception_return(e)
