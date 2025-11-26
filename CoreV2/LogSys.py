@@ -164,7 +164,7 @@ class Log:
             >>> if logger_result.success:
             >>>     logger = logger_result.data
             >>>     log_system = Log(logger)
-            >>>     log_result = log_system.log_message('INFO', "This is an info message
+            >>>     log_result = log_system.log_message('INFO', "This is an info message.")
             >>>     if log_result.success:
             >>>         print("Log message sent successfully.")
             >>>     else:

@@ -85,9 +85,13 @@ class ExceptionTracker():
 
         Example:
             >>> try:
-            >>>     1 / 0
+            >>>     def divide(a, b):
+            >>>         return a / b
+            >>>     a, b = 10, 0
+            >>>     # This will raise a ZeroDivisionError
+            >>>     divide(a, b)
             >>> except Exception as e:
-            >>>     info_result = tracker.get_exception_info(e, user_input="Divide operation", params
+            >>>     info_result = tracker.get_exception_info(e, user_input="Divide operation", params={"a": a, "b": b}, masking=False)
             >>>     print(info_result.data)
             >>> # Output: ( error_info dict, see Readme.md for structure )
         """

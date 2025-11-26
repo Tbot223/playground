@@ -140,6 +140,7 @@ class FileManager:
             >>>     print(f"Write failed: {result.error_message}")
         """
         try:
+            temp_path = None
             file_path = self._str_to_path(file_path)
             if not file_path.parent.exists():
                 file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -298,7 +299,7 @@ class FileManager:
             self.log.log_message("ERROR", f"Failed to read JSON from {file_path}: {e}")
             return self._exception_tracker.get_exception_return(e)
         
-    def list_of_files(self, dir_path: Union[str, Path], extensions: List[str]=[], only_name: bool = False) -> Result:
+    def list_of_files(self, dir_path: Union[str, Path], extensions: List[str]=None, only_name: bool = False) -> Result:
         """
         List all files in the directory at "dir_path"
 
@@ -323,12 +324,12 @@ class FileManager:
         """
         try:
             dir_path = self._str_to_path(dir_path)
-            extensions = extensions or [ext.lower() for ext in extensions]
+            extensions = [ext.lower() for ext in extensions] if extensions else []
 
             if not dir_path.is_dir():
                 raise NotADirectoryError(f"Not a directory: {dir_path}")
 
-            def is_matching_file(item: Path, list_obj: list) -> str:
+            def is_matching_file(item: Path, list_obj: list):
                 if extensions == [] or item.suffix.lower() in extensions:
                     list_obj.append(item.stem if only_name else str(item))
 

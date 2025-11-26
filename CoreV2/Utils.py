@@ -53,7 +53,7 @@ class Utils:
         self.log.log_message("INFO", "Utils initialized.")
 
     # Internal Methods
-    def _check_pdkdf2_params(self, password: str, algorithm: str, iterations: int, salt_size: int = 32) -> None:
+    def _check_pbkdf2_params(self, password: str, algorithm: str, iterations: int, salt_size: int = 32) -> None:
         """
         Check parameters for PBKDF2 HMAC functions.
 
@@ -115,7 +115,7 @@ class Utils:
 
         Args:
             - data : The string to encrypt.
-            - algorithm : The hashing algorithm to use. Defaults to 'sha256
+            - algorithm : The hashing algorithm to use. Defaults to 'sha256'
 
         Returns:
             Result: A Result object containing the encrypted string in hexadecimal format.
@@ -169,7 +169,7 @@ class Utils:
             >>>     print(result.error)
         """
         try:
-            self._check_pdkdf2_params(password, algorithm, iterations, salt_size)
+            self._check_pbkdf2_params(password, algorithm, iterations, salt_size)
             
             salt = secrets.token_bytes(salt_size)
             hash_bytes = hashlib.pbkdf2_hmac(algorithm, password.encode('utf-8'), salt, iterations)
@@ -221,7 +221,7 @@ class Utils:
             >>>     print(result.error)
         """
         try:
-            self._check_pdkdf2_params(password, algorithm, iterations)
+            self._check_pbkdf2_params(password, algorithm, iterations)
             if not isinstance(salt_hex, str) or not isinstance(hash_hex, str):
                 raise ValueError("salt_hex and hash_hex must be strings")
             
@@ -608,8 +608,6 @@ class GlobalVars:
         try:
             if value is not None:
                 return self.set(key, value, overwrite)
-            elif value is None:
-                return self.get(key)
             else:
                 raise ValueError("Invalid arguments provided.")
         except Exception as e:

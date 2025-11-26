@@ -207,7 +207,7 @@ class AppCore:
                 continue
             if comparison_func(value):
                 found_keys.append(f"{nest_mark}{key}")
-                print(f"Matched key: {nest_mark}{key} with value: {value}")
+                self.log.log_message("DEBUG", f"Key '{nest_mark}{key}' matches the condition.")
             if nested and isinstance(value, dict):
                 self.log.log_message("DEBUG", f"Searching nested dictionary at key '{key}'.")
                 found_keys.extend(self._lookup_dict(value, threshold, comparison_func, comparison_type, nested, f"{nest_mark}{key}."))
@@ -252,7 +252,7 @@ class AppCore:
         Execute functions in parallel using ProcessPoolExecutor.
 
         Args:
-            data : example: [(func1, {'arg1': val1}), (func2
+            data : List of tuples, Each containing a function and a dictionary of arguments. Example: [(func1, {'arg1': val1}), (func2, {'arg2': val2})]
             workers : Number of worker processes to use. Defaults to os.cpu_count() * 2.
             override : If True, allows workers to exceed the number of tasks.
             timeout : Maximum time to wait for each function to complete. ( 0.1 seconds minimum )
@@ -379,7 +379,7 @@ class AppCore:
             self.log.log_message("INFO", f"Retrieved text for key '{key}' in language '{lang}'.")
             return Result(True, None, None, self._lang_cache[lang][key])
         except Exception as e:
-            self._lang_cache.pop(lang)
+            self._lang_cache.pop(lang, None)
             self.log.log_message("ERROR", f"Error in get_text_by_lang: {str(e)}")
             return self._exception_tracker.get_exception_return(e)
         

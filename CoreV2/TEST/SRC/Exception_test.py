@@ -94,7 +94,7 @@ class TestExceptionTracker:
         """
         result = self.dummy_method(0)
         
-        result.data["error"]["type"] == "ZeroDivisionError"
+        assert result.data["error"]["type"] == "ZeroDivisionError"
 
 if __name__ == "__main__":
     pytest.main([__file__])
