@@ -158,7 +158,7 @@ class ExceptionTrackerDecorator():
     Decorator for wrapping functions with ExceptionTracker.
 
     - Tracks exceptions and returns a safe value via ExceptionTracker.
-    - Use only for non‑critical functions (adds overhead).
+    - Use only for non-critical functions (adds overhead).
     - Not suitable if logging or side effects are required. 
     
     Example:
