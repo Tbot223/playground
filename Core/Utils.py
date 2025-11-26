@@ -136,3 +136,11 @@ class GlobalVars:
             return Result(True, None, None, True)
         except Exception as e:
             return Result(False, f"{type(e).__name__} :{str(e)}", self.exception_tracker.get_exception_location(e).data, self.exception_tracker.get_exception_info(e).data)
+        
+class ClassNameUpper(type):
+    """
+    Metaclass to convert class names to uppercase
+    """
+    def __new__(cls, name, bases, attrs):
+        name = name.upper()
+        return super().__new__(cls, name, bases, attrs)

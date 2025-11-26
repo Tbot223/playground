@@ -26,4 +26,3 @@ class Deco:
                 return result
             return wrapper
         return decorator
-        

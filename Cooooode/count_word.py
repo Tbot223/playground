@@ -2,6 +2,7 @@ import os
 from Core import AppCore
 from Core import LogSys
 from Core import Deco
+from CoreV2.Exception import ExceptionTrackerDecorator
 
 def count_word_in_file(file_path: str) -> int:
     count = 0
@@ -9,6 +10,7 @@ def count_word_in_file(file_path: str) -> int:
         count = len(file.read().split())
     return count
 
+@ExceptionTrackerDecorator()
 @Deco.count_run_time(Deco)
 def main():
     logger_manager = LogSys.LoggerManager(base_dir="./logs", second_log_dir="CountWordLogs")
@@ -19,7 +21,7 @@ def main():
     file_paths = [f"{bp}/tmp.txt", f"{bp}/tmp2.txt", f"{bp}/tmp3.txt", f"{bp}/tmp4.txt"]
 
     tasks = [(count_word_in_file, {'file_path': path}) for path in file_paths]
-    result = app_core.multi_process_executer(tasks, process=2)
+    result = app_core.multi_process_executer(tasks, process=1)
     result = ", ".join(str(n) for n in result.data)
     log.log_msg("info", f"Word count results: {result}", False)
 

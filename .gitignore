@@ -7,3 +7,8 @@
 /LICENSE.txt
 Core/.DS_Store
 .DS_Store
+/CoreV2/__pycache__
+/CoreV2/TEST/SRC/__pycache__
+/CoreV2/TEST/SRC/__pycache__
+/CoreV2/TEST/SRC/__pycache__
+/CoreV2/TEST/__pycache__
