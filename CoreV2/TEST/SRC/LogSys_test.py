@@ -37,7 +37,7 @@ class TestLogSys:
         get_result = logger_manager.get_logger(logger_name=logger_name)
         assert not get_result.success, "Getting non-existent logger should have failed."
 
-    def test_logger_functionality(self, setup_module):
+    def test_log_functionality(self, setup_module):
         logger_manager, log = setup_module
         logger_name = "functional_logger"
         log_level = "INFO"
@@ -49,13 +49,13 @@ class TestLogSys:
         # Get logger
         get_result = logger_manager.get_logger(logger_name=logger_name)
         assert get_result.success, f"Getting logger failed: {get_result.error}"
-        logger = get_result.data
+        log.logger = get_result.data
 
         # Test logging
         try:
-            logger.info("This is an info message for testing.")
-            logger.debug("This is a debug message for testing.")
-            logger.error("This is an error message for testing.")
+            log.log_message("INFO", "This is an info message.")
+            log.log_message("WARNING", "This is a warning message.")
+            log.log_message("ERROR", "This is an error message.")
         except Exception as e:
             pytest.fail(f"Logging functionality failed with exception: {e}")
 

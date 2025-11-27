@@ -56,7 +56,7 @@ class TestFileManager:
         (tmp_path / "file3.txt").write_text("File 3")
 
         # Test listing .txt files
-        list_result = file_manager.list_of_files(dir_path=tmp_path, extensions=".txt", only_name=True)
+        list_result = file_manager.list_of_files(dir_path=tmp_path, extensions=[".txt"], only_name=True)
         assert list_result.success, f"List of files failed: {list_result.error}"
         expected_files = {"file1", "file3"}
         assert set(list_result.data) == expected_files, "Listed files do not match expected files."
@@ -151,4 +151,4 @@ class TestFileManagerEdgeCases:
     pass # Placeholder for future edge case tests
 
 if __name__ == "__main__":
-    pytest.main([__file__, ""])
+    pytest.main([__file__, "-vv"])
