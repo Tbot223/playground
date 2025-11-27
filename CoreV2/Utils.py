@@ -609,6 +609,6 @@ class GlobalVars:
             if value is not None:
                 return self.set(key, value, overwrite)
             else:
-                raise ValueError("Invalid arguments provided.")
+                return self.get(key)
         except Exception as e:
             return self._exception_tracker.get_exception_return(e)
