@@ -102,7 +102,7 @@ class Utils:
         """
         try:
             if not isinstance(path_str, str):
-                raise ValueError("path_str must be a string")
+                return Result(True, "already a Path object", None, path_str)
 
             return Result(True, None, None, Path(path_str))
         except Exception as e:

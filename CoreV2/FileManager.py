@@ -6,7 +6,10 @@ import tempfile
 import json
 import shutil
 import stat
-import fcntl
+if os.name != 'nt':
+    import fcntl
+else:
+    import msvcrt
 
 #internal Modules
 from CoreV2.Result import Result
@@ -114,6 +117,26 @@ class FileManager:
         if isinstance(path, Path):
             return path
         return self._utils.str_to_path(path).data
+    
+    @staticmethod
+    def _lock(file: Path, mode: int):
+        """
+        Lock a file using fcntl (Unix) or msvcrt (Windows).
+
+        Args:
+            - file : The file object to lock.
+            - mode : The lock mode (fcntl.LOCK_EX, fcntl.LOCK_SH for Unix; msvcrt.LK_LOCK, msvcrt.LK_RLCK for Windows, 1 is lock, 0 is unlock).
+        """
+        if os.name != 'nt':
+            if mode == 1:
+                fcntl.flock(file, fcntl.LOCK_EX)
+            else:
+                fcntl.flock(file, fcntl.LOCK_UN)
+        else:
+            if mode == 1:
+                msvcrt.locking(file.fileno(), msvcrt.LK_LOCK, os.path.getsize(file.name))
+            else:
+                msvcrt.locking(file.fileno(), msvcrt.LK_UNLCK, os.path.getsize(file.name))
             
 
     def atomic_write(self, file_path: Union[str, Path], data: Any) -> Result:
@@ -151,11 +174,11 @@ class FileManager:
 
             def replace_temp_with_target(temp_path: Path, target_path: Path):
                 with open(target_path, "a+b") as f:
-                    fcntl.flock(f, fcntl.LOCK_EX)
+                    self._lock(f, 1)
                     try:
                         os.replace(temp_path, target_path)
                     finally:
-                        fcntl.flock(f, fcntl.LOCK_UN)
+                        self._lock(f, 0)
 
             with tempfile.NamedTemporaryFile(mode, delete=False, dir=str(file_path.parent), encoding=encoding) as temp:
                 temp_path = Path(temp.name)
@@ -210,12 +233,12 @@ class FileManager:
 
             def safe_read(f, lock):
                 if lock:
-                    fcntl.flock(f, fcntl.LOCK_SH)
+                    self._lock(f, 1)
                 try:
                     content = f.read()
                 finally:
                     if lock:
-                        fcntl.flock(f, fcntl.LOCK_UN)
+                        self._lock(f, 0)
                 return content
             
             with open(file_path, mode, encoding=encoding) as f:
