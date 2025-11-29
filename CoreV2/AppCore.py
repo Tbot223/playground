@@ -403,7 +403,7 @@ class AppCore:
             self.log.log_message("ERROR", f"Error in clear_console: {str(e)}")
             return self._exception_tracker.get_exception_return(e)
         
-    def exit_application(self, code: int=0) -> Result:
+    def exit_application(self, code: int=0, pause: bool=False) -> Result:
         """
         Exit the application with the specified exit code.
 
@@ -418,12 +418,14 @@ class AppCore:
         """
         try:
             self.log.log_message("INFO", f"Exiting application with code {code}.")
+            if pause:
+                input("Press Enter to exit...")
             sys.exit(code)
         except Exception as e:
             self.log.log_message("ERROR", f"Error in exit_application: {str(e)}")
             return self._exception_tracker.get_exception_return(e)
     
-    def restart_application(self) -> Result:
+    def restart_application(self, pause: bool=False) -> Result:
         """
         Restart the current application.
 
@@ -436,6 +438,8 @@ class AppCore:
         try:
             python = sys.executable
             self.log.log_message("INFO", "Restarting application.")
+            if pause:
+                input("Press Enter to restart...")
             os.execl(python, python, * sys.argv)
         except Exception as e:
             self.log.log_message("ERROR", f"Error in restart_application: {str(e)}")

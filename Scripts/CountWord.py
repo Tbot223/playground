@@ -146,7 +146,7 @@ class CountWord:
         return Result(True, None, f" Successfully counted words in directory: {dir_path}", word_counts)
     
 if __name__ == "__main__":
-    count_word = CountWord()
+    count_word = CountWord(is_logging_enabled=False)
     print("""
  ██████  ██████  ██    ██ ███    ██ ████████     ██     ██  ██████  ██████  ██████  
 ██      ██    ██ ██    ██ ████   ██    ██        ██     ██ ██    ██ ██   ██ ██   ██ 
@@ -154,12 +154,12 @@ if __name__ == "__main__":
 ██      ██    ██ ██    ██ ██  ██ ██    ██        ██ ███ ██ ██    ██ ██   ██ ██   ██ 
  ██████  ██████   ██████  ██   ████    ██         ███ ███   ██████  ██   ██ ██████  
                                                                                    
-""")
+    """)
     print("Current working directory:", Path.cwd())
     dir = input("Enter directory path to count words in text files: ")
     if not dir:
         print("Directory path is required.")
-        exit(1)
+        count_word._app_core.exit_application(code=1, pause=True)
     extensions = []
     while True:
         ext = input("Enter file extension to filter (e.g., .txt), or 'done' to finish: ")
@@ -173,6 +173,7 @@ if __name__ == "__main__":
     result = count_word.count_words_in_directory(dir_path=dir, extensions=extensions, workers=workers)
     if result.success:
         for file, count in result.data.items():
-            print(f"{file}: {count} words")
+            print(f"{file}: {count} words")      
+        count_word._app_core.exit_application(code=0, pause=True)
     else:
         print(f"Error: {result.error}")
