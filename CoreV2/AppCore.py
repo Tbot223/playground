@@ -5,6 +5,7 @@ import sys
 from typing import Any, Callable, List, Dict, Tuple, Union, Optional, Generator
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
+import logging
 
 #internal Modules
 from CoreV2.Result import Result
@@ -25,7 +26,7 @@ class AppCore:
         default_lang (str): Default language code for localization. (Fallback language)
         base_dir (Union[str, Path]): Base directory for the application.
         logger_manager_instance (LogSys.LoggerManager): Instance of LoggerManager for logging.
-        logger (Any): Logger instance for logging messages.
+        logger (logging.Logger): Logger instance for logging messages.
         log_instance (LogSys.Log): Instance of Log for logging messages.
         filemanager (FileManager.FileManager): Instance of FileManager for file operations.
 
@@ -54,7 +55,7 @@ class AppCore:
     
     def __init__(self, is_logging_enabled: bool=True, is_debug_enabled: bool=False, default_lang: str="en",
                  base_dir: Union[str, Path]=None,
-                 logger_manager_instance: Optional[LogSys.LoggerManager]=None, logger: Optional[Any]=None, 
+                 logger_manager_instance: Optional[LogSys.LoggerManager]=None, logger: Optional[logging.Logger]=None, 
                  log_instance: Optional[LogSys.Log]=None, filemanager: Optional[FileManager.FileManager]=None):
 
         # Initialize paths

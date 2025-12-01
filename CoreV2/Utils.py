@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Optional, Any
 import time
 import hashlib, secrets
+import logging
 
 # internal Modules
 from CoreV2.Result import Result
@@ -29,7 +30,7 @@ class Utils:
     
     def __init__(self, is_logging_enabled: bool=False,
                  base_dir: Optional[Path]=None,
-                 logger_manager_instance: Optional[LogSys.LoggerManager]=None, logger: Optional[Any]=None, 
+                 logger_manager_instance: Optional[LogSys.LoggerManager]=None, logger: Optional[logging.Logger]=None, 
                  log_instance: Optional[LogSys.Log]=None):
         """
         Initialize Utils class.
@@ -325,9 +326,8 @@ class GlobalVars:
         >>> print(globals("api_key").data)  # Output: 12345
     """
     
-    def __init__(self, is_logging_enabled: bool=False,
-                 base_dir: Optional[Path]=None,
-                 logger_manager_instance: Optional[LogSys.LoggerManager]=None, logger: Optional[Any]=None, 
+    def __init__(self, is_logging_enabled: bool=False, base_dir: Optional[Path]=None,
+                 logger_manager_instance: Optional[LogSys.LoggerManager]=None, logger: Optional[logging.Logger]=None, 
                  log_instance: Optional[LogSys.Log]=None):
         
         # Set initialization flag to bypass __setattr__ during __init__

@@ -1,11 +1,12 @@
 #external Modules
-import os
 from typing import List, Union, Any, Optional
 from pathlib import Path
 import tempfile
 import json
 import shutil
 import stat
+import os
+import logging
 if os.name != 'nt':
     import fcntl
 else:
@@ -57,7 +58,7 @@ class FileManager:
 
     def __init__(self, is_logging_enabled: bool=True, is_debug_enabled: bool=False,
                  base_dir: Union[str, Path]=None,
-                 logger_manager_instance: Optional[LogSys.LoggerManager]=None, logger: Optional[Any]=None, 
+                 logger_manager_instance: Optional[LogSys.LoggerManager]=None, logger: Optional[logging.Logger]=None, 
                  log_instance: Optional[LogSys.Log]=None, Utils_instance: Optional[Utils.Utils]=None):
         
         # Initialize paths

@@ -1,6 +1,7 @@
 # external Modules
 from pathlib import Path
-from typing import Union, List
+from typing import Union, List, Optional
+import logging
 
 # internal Modules
 from CoreV2 import LogSys, FileManager, AppCore, Utils
@@ -14,25 +15,26 @@ class CountWord:
     Attributes:
         - BasePath (Union[str, Path]): Base path for the application. Defaults to the parent directory of the script.
         - is_logging_enabled (bool): Flag to enable or disable logging. Defaults to True.
-        - logger (LogSys.Log): Logger instance for logging messages.
+        - logger (logging.Logger): Logger instance for logging messages.
         - _log (LogSys.Log): Log instance for logging messages.
         - _file_manager (FileManager.FileManager): FileManager instance for file operations.
         - _app_core (AppCore.AppCore): AppCore instance for core application functionalities.
         - _utils (Utils.Utils): Utils instance for utility functions.
 
     Methods:
-        - count_words_in_file(file_path: Union[str, Path]) -> Result:
+        - count_words_in_file(file_path) -> Result:
             Count the number of words in a file.
 
-        - files_word_count(file_paths: list[Union[str, Path]], workers: int = 1) -> Result:
+        - files_word_count(file_paths, workers) -> Result:
             Count words in multiple files using multithreading.
 
-        - count_words_in_directory(dir_path: Union[str, Path], extensions: List[str] = [".txt"], workers: int = 1) -> Result:
+        - count_words_in_directory(dir_path, extensions, workers) -> Result:
             Count words in all files with a specific extension within a directory.
     """
-    def __init__(self, BasePath: Union[str, Path] = None, is_logging_enabled: bool = True,
-                 logger_manager: LogSys.LoggerManager = None, log: LogSys.Log = None, file_manager: FileManager.FileManager = None,
-                 app_core: AppCore.AppCore = None, utils: Utils.Utils = None):
+    def __init__(self, BasePath: Union[str, Path]=None, is_logging_enabled: bool=True,
+                 logger: Optional[logging.Logger]=None,
+                 logger_manager: LogSys.LoggerManager=None, log: LogSys.Log=None, file_manager: FileManager.FileManager=None,
+                 app_core: AppCore.AppCore=None, utils: Utils.Utils=None):
         
         # Initialize Path
         self.BasePath = BasePath or Path(__file__).resolve().parent.parent
@@ -41,7 +43,7 @@ class CountWord:
         self.is_logging_enabled = is_logging_enabled
 
         # Initialize classes
-        self.logger = None
+        self.logger = logger or None
         if self.is_logging_enabled:
             self._logger_manager = logger_manager or LogSys.LoggerManager(base_dir=self.BasePath / "logs", second_log_dir="CountWordLogs")
             self._logger_manager.make_logger("CountWord")
