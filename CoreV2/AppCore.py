@@ -16,10 +16,6 @@ class AppCore:
     """
     Provides core functionalities for application management.
 
-    This class includes support for multi-threading, localization, console management,
-    and dictionary key-value searching. It also integrates logging and file management
-    utilities.
-
     Attributes:
         is_logging_enabled (bool): Flag to enable or disable logging.
         is_debug_enabled (bool): Flag to enable or disable debug mode.
