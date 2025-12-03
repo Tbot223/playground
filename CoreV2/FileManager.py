@@ -127,6 +127,15 @@ class FileManager:
         Args:
             - file : The file object to lock.
             - mode : The lock mode (fcntl.LOCK_EX, fcntl.LOCK_SH for Unix; msvcrt.LK_LOCK, msvcrt.LK_RLCK for Windows, 1 is lock, 0 is unlock).
+
+        Returns:
+            This method does not return any value.
+
+        Example:
+            >>> with open("example.txt", "r+") as f:
+            >>>     file_manager._lock(f, 1)  # Lock the file
+            >>>     # Perform file operations
+            >>>     file_manager._lock(f, 0)  # Unlock the file
         """
         if os.name != 'nt':
             if mode == 1:
