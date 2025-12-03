@@ -4,9 +4,9 @@ from typing import Union, List, Optional
 import logging
 
 # internal Modules
-from CoreV2 import LogSys, FileManager, AppCore, Utils
-from CoreV2.Result import Result
-from CoreV2.Exception import ExceptionTrackerDecorator
+from tbot223_core import LogSys, FileManager, AppCore, Utils
+from tbot223_core.Result import Result
+from tbot223_core.Exception import ExceptionTrackerDecorator
 
 class CountWord:
     """
