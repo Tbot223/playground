@@ -12,3 +12,6 @@ Core/.DS_Store
 /CoreV2/TEST/SRC/__pycache__
 /CoreV2/TEST/SRC/__pycache__
 /CoreV2/TEST/__pycache__
+*.pyc
+/RUST/start/target
+/RUST/start/Cargo.lock
