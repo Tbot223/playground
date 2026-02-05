@@ -1,5 +1,5 @@
 {
   "rust-analyzer.linkedProjects": [
-    "C:\\Users\\thdgh\\OneDrive\\문서\\GitHub\\playground\\RUST\\start\\Cargo.toml"
+    "${workspaceFolder}/RUST/start/Cargo.toml"
   ]
 }
